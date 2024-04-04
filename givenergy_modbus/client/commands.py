@@ -6,6 +6,9 @@ from arrow import Arrow
 from typing_extensions import deprecated  # type: ignore[attr-defined]
 
 from givenergy_modbus.model import TimeSlot
+from givenergy_modbus.model.inverter import (
+    BatteryPauseMode,
+)
 from givenergy_modbus.pdu import (
     ReadHoldingRegistersRequest,
     ReadInputRegistersRequest,
@@ -43,22 +46,71 @@ class RegisterMap:
     BATTERY_DISCHARGE_MIN_POWER_RESERVE = 114
     CHARGE_TARGET_SOC = 116
     REBOOT = 163
+    BATTERY_PAUSE_MODE = 318
 
 
-def refresh_plant_data(complete: bool, number_batteries: int = 1, max_batteries: int = 5) -> list[TransparentRequest]:
+def refresh_additional_holding_registers(
+    base_register: int,
+) -> list[TransparentRequest]:
+    """Requests one specific set of holding registers.
+
+    This is intended to be used in cases where registers may or may not be present,
+    depending on device capabilities."""
+    return [
+        ReadHoldingRegistersRequest(
+            base_register=base_register, register_count=60, slave_address=0x32
+        )
+    ]
+
+
+def refresh_plant_data(
+    complete: bool,
+    number_batteries: int = 1,
+    max_batteries: int = 5,
+    additional_holding_registers: Optional[list[int]] = None,
+) -> list[TransparentRequest]:
     """Refresh plant data."""
     requests: list[TransparentRequest] = [
-        ReadInputRegistersRequest(base_register=0, register_count=60, slave_address=0x32),
-        ReadInputRegistersRequest(base_register=180, register_count=60, slave_address=0x32),
+        ReadInputRegistersRequest(
+            base_register=0, register_count=60, slave_address=0x32
+        ),
+        ReadInputRegistersRequest(
+            base_register=180, register_count=60, slave_address=0x32
+        ),
     ]
     if complete:
-        requests.append(ReadHoldingRegistersRequest(base_register=0, register_count=60, slave_address=0x32))
-        requests.append(ReadHoldingRegistersRequest(base_register=60, register_count=60, slave_address=0x32))
-        requests.append(ReadHoldingRegistersRequest(base_register=120, register_count=60, slave_address=0x32))
-        requests.append(ReadInputRegistersRequest(base_register=120, register_count=60, slave_address=0x32))
+        requests.append(
+            ReadHoldingRegistersRequest(
+                base_register=0, register_count=60, slave_address=0x32
+            )
+        )
+        requests.append(
+            ReadHoldingRegistersRequest(
+                base_register=60, register_count=60, slave_address=0x32
+            )
+        )
+        requests.append(
+            ReadHoldingRegistersRequest(
+                base_register=120, register_count=60, slave_address=0x32
+            )
+        )
+        requests.append(
+            ReadInputRegistersRequest(
+                base_register=120, register_count=60, slave_address=0x32
+            )
+        )
+
+        if additional_holding_registers:
+            for hr in additional_holding_registers:
+                requests.extend(refresh_additional_holding_registers(hr))
+
         number_batteries = max_batteries
     for i in range(number_batteries):
-        requests.append(ReadInputRegistersRequest(base_register=60, register_count=60, slave_address=0x32 + i))
+        requests.append(
+            ReadInputRegistersRequest(
+                base_register=60, register_count=60, slave_address=0x32 + i
+            )
+        )
     return requests
 
 
@@ -73,13 +125,15 @@ def disable_charge_target() -> list[TransparentRequest]:
 def set_charge_target(target_soc: int) -> list[TransparentRequest]:
     """Sets inverter to stop charging when SOC reaches the desired level. Also referred to as "winter mode"."""
     if not 4 <= target_soc <= 100:
-        raise ValueError(f'Charge Target SOC ({target_soc}) must be in [4-100]%')
+        raise ValueError(f"Charge Target SOC ({target_soc}) must be in [4-100]%")
     ret = set_enable_charge(True)
     if target_soc == 100:
         ret.extend(disable_charge_target())
     else:
         ret.append(WriteHoldingRegisterRequest(RegisterMap.ENABLE_CHARGE_TARGET, True))
-        ret.append(WriteHoldingRegisterRequest(RegisterMap.CHARGE_TARGET_SOC, target_soc))
+        ret.append(
+            WriteHoldingRegisterRequest(RegisterMap.CHARGE_TARGET_SOC, target_soc)
+        )
     return ret
 
 
@@ -103,25 +157,25 @@ def set_calibrate_battery_soc() -> list[TransparentRequest]:
     return [WriteHoldingRegisterRequest(RegisterMap.SOC_FORCE_ADJUST, 1)]
 
 
-@deprecated('use set_enable_charge(True) instead')
+@deprecated("use set_enable_charge(True) instead")
 def enable_charge() -> list[TransparentRequest]:
     """Enable the battery to charge, depending on the mode and slots set."""
     return set_enable_charge(True)
 
 
-@deprecated('use set_enable_charge(False) instead')
+@deprecated("use set_enable_charge(False) instead")
 def disable_charge() -> list[TransparentRequest]:
     """Prevent the battery from charging at all."""
     return set_enable_charge(False)
 
 
-@deprecated('use set_enable_discharge(True) instead')
+@deprecated("use set_enable_discharge(True) instead")
 def enable_discharge() -> list[TransparentRequest]:
     """Enable the battery to discharge, depending on the mode and slots set."""
     return set_enable_discharge(True)
 
 
-@deprecated('use set_enable_discharge(False) instead')
+@deprecated("use set_enable_discharge(False) instead")
 def disable_discharge() -> list[TransparentRequest]:
     """Prevent the battery from discharging at all."""
     return set_enable_discharge(False)
@@ -137,7 +191,7 @@ def set_discharge_mode_to_match_demand() -> list[TransparentRequest]:
     return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_POWER_MODE, 1)]
 
 
-@deprecated('Use set_battery_soc_reserve(val) instead')
+@deprecated("Use set_battery_soc_reserve(val) instead")
 def set_shallow_charge(val: int) -> list[TransparentRequest]:
     """Set the minimum level of charge to maintain."""
     return set_battery_soc_reserve(val)
@@ -148,7 +202,7 @@ def set_battery_soc_reserve(val: int) -> list[TransparentRequest]:
     # TODO what are valid values? 4-100?
     val = int(val)
     if not 4 <= val <= 100:
-        raise ValueError(f'Minimum SOC / shallow charge ({val}) must be in [4-100]%')
+        raise ValueError(f"Minimum SOC / shallow charge ({val}) must be in [4-100]%")
     return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_SOC_RESERVE, val)]
 
 
@@ -156,7 +210,7 @@ def set_battery_charge_limit(val: int) -> list[TransparentRequest]:
     """Set the battery charge power limit as percentage. 50% (2.6 kW) is the maximum for most inverters."""
     val = int(val)
     if not 0 <= val <= 50:
-        raise ValueError(f'Specified Charge Limit ({val}%) is not in [0-50]%')
+        raise ValueError(f"Specified Charge Limit ({val}%) is not in [0-50]%")
     return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_CHARGE_LIMIT, val)]
 
 
@@ -164,7 +218,7 @@ def set_battery_discharge_limit(val: int) -> list[TransparentRequest]:
     """Set the battery discharge power limit as percentage. 50% (2.6 kW) is the maximum for most inverters."""
     val = int(val)
     if not 0 <= val <= 50:
-        raise ValueError(f'Specified Discharge Limit ({val}%) is not in [0-50]%')
+        raise ValueError(f"Specified Discharge Limit ({val}%) is not in [0-50]%")
     return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_DISCHARGE_LIMIT, val)]
 
 
@@ -173,19 +227,32 @@ def set_battery_power_reserve(val: int) -> list[TransparentRequest]:
     # TODO what are valid values?
     val = int(val)
     if not 4 <= val <= 100:
-        raise ValueError(f'Battery power reserve ({val}) must be in [4-100]%')
-    return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_DISCHARGE_MIN_POWER_RESERVE, val)]
+        raise ValueError(f"Battery power reserve ({val}) must be in [4-100]%")
+    return [
+        WriteHoldingRegisterRequest(
+            RegisterMap.BATTERY_DISCHARGE_MIN_POWER_RESERVE, val
+        )
+    ]
 
 
-def _set_charge_slot(discharge: bool, idx: int, slot: Optional[TimeSlot]) -> list[TransparentRequest]:
+def set_battery_pause_mode(val: BatteryPauseMode) -> list[TransparentRequest]:
+    """Set the battery pause mode."""
+    if not 0 <= val <= 3:
+        raise ValueError(f"Battery pause mode ({val}) must be in [0-3]")
+    return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_PAUSE_MODE, val)]
+
+
+def _set_charge_slot(
+    discharge: bool, idx: int, slot: Optional[TimeSlot]
+) -> list[TransparentRequest]:
     hr_start, hr_end = (
         getattr(RegisterMap, f'{"DIS" if discharge else ""}CHARGE_SLOT_{idx}_START'),
         getattr(RegisterMap, f'{"DIS" if discharge else ""}CHARGE_SLOT_{idx}_END'),
     )
     if slot:
         return [
-            WriteHoldingRegisterRequest(hr_start, int(slot.start.strftime('%H%M'))),
-            WriteHoldingRegisterRequest(hr_end, int(slot.end.strftime('%H%M'))),
+            WriteHoldingRegisterRequest(hr_start, int(slot.start.strftime("%H%M"))),
+            WriteHoldingRegisterRequest(hr_end, int(slot.end.strftime("%H%M"))),
         ]
     else:
         return [
@@ -255,7 +322,11 @@ def set_mode_dynamic() -> list[TransparentRequest]:
     and minimise the amount of energy drawn from the grid.
     """
     # r27=1 r110=4 r59=0
-    return set_discharge_mode_to_match_demand() + set_battery_soc_reserve(4) + set_enable_discharge(False)
+    return (
+        set_discharge_mode_to_match_demand()
+        + set_battery_soc_reserve(4)
+        + set_enable_discharge(False)
+    )
 
 
 def set_mode_storage(

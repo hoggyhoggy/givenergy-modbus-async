@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from json import JSONEncoder
+import math
 from typing import Any, Callable, Optional, Union
 
 from pydantic.utils import GetterDict
@@ -16,6 +17,14 @@ class Converter:
         """Simply return the raw unsigned 16-bit integer register value."""
         if val is not None:
             return int(val)
+
+    @staticmethod
+    def int16(val: int) -> int:
+        """Interpret as a 16-bit integer register value."""
+        if val is not None:
+            if val & (1 << (16 - 1)):
+                val -= 1 << 16
+            return val
 
     @staticmethod
     def duint8(val: int, *idx: int) -> int:
@@ -48,9 +57,9 @@ class Converter:
         """Represent one or more registers as a concatenated string."""
         if vals is not None and None not in vals:
             return (
-                b''.join(v.to_bytes(2, byteorder='big') for v in vals)
-                .decode(encoding='latin1')
-                .replace('\x00', '')
+                b"".join(v.to_bytes(2, byteorder="big") for v in vals)
+                .decode(encoding="latin1")
+                .replace("\x00", "")
                 .upper()
             )
         return None
@@ -59,20 +68,37 @@ class Converter:
     def fstr(val, fmt) -> Optional[str]:
         """Render a value using a format string."""
         if val is not None:
-            return f'{val:{fmt}}'
+            return f"{val:{fmt}}"
         return None
 
     @staticmethod
     def firmware_version(dsp_version: int, arm_version: int) -> Optional[str]:
         """Represent ARM & DSP firmware versions in the same format as the dashboard."""
         if dsp_version is not None and arm_version is not None:
-            return f'D0.{dsp_version}-A0.{arm_version}'
+            return f"D0.{dsp_version}-A0.{arm_version}"
+
+    @staticmethod
+    def inverter_max_power(device_type_code: str) -> Optional[int]:
+        """Determine max inverter power from device_type_code."""
+        dtc_to_power = {
+            "2001": 5000,
+            "2002": 4600,
+            "2003": 3600,
+            "3001": 3000,
+            "3002": 3600,
+            "4001": 6000,
+            "4002": 8000,
+            "4003": 10000,
+            "4004": 11000,
+            "8001": 6000,
+        }
+        return dtc_to_power.get(device_type_code)
 
     @staticmethod
     def hex(val: int, width: int = 4) -> str:
         """Represent a register value as a 4-character hex string."""
         if val is not None:
-            return f'{val:0{width}x}'
+            return f"{val:0{width}x}"
 
     @staticmethod
     def milli(val: int) -> float:
@@ -106,7 +132,7 @@ class RegisterDefinition:
 
     pre_conv: Union[Callable, tuple, None]
     post_conv: Union[Callable, tuple[Callable, Any], None]
-    registers: tuple['Register']
+    registers: tuple["Register"]
 
     def __init__(self, *args, **kwargs):
         self.pre_conv = args[0]
@@ -147,6 +173,8 @@ class RegisterGetter(GetterDict):
             if isinstance(r.post_conv, tuple):
                 return r.post_conv[0](val, *r.post_conv[1:])
             else:
+                if not isinstance(r.post_conv, Callable):
+                    pass
                 return r.post_conv(val)
         return val
 
@@ -155,7 +183,9 @@ class RegisterGetter(GetterDict):
         """Determine a pydantic fields definition for the class."""
 
         def infer_return_type(obj: Any):
-            if hasattr(obj, '__annotations__') and (ret := obj.__annotations__.get('return', None)):
+            if hasattr(obj, "__annotations__") and (
+                ret := obj.__annotations__.get("return", None)
+            ):
                 return ret
             return obj  # assume it is a class/type already?
 
@@ -172,7 +202,9 @@ class RegisterGetter(GetterDict):
                     return infer_return_type(v.pre_conv)
             return Any
 
-        register_fields = {k: (return_type(v), None) for k, v in cls.REGISTER_LUT.items()}
+        register_fields = {
+            k: (return_type(v), None) for k, v in cls.REGISTER_LUT.items()
+        }
 
         return register_fields
 
@@ -187,7 +219,7 @@ class RegisterEncoder(JSONEncoder):
     def default(self, o: Any) -> str:
         """Custom JSON encoder to treat RegisterCaches specially."""
         if isinstance(o, Register):
-            return f'{o._type}_{o._idx}'
+            return f"{o._type}_{o._idx}"
         else:
             return super().default(o)
 
@@ -195,8 +227,8 @@ class RegisterEncoder(JSONEncoder):
 class Register:
     """Register base class."""
 
-    TYPE_HOLDING = 'HR'
-    TYPE_INPUT = 'IR'
+    TYPE_HOLDING = "HR"
+    TYPE_INPUT = "IR"
 
     _type: str
     _idx: int
@@ -205,12 +237,16 @@ class Register:
         self._idx = idx
 
     def __str__(self):
-        return '%s_%d' % (self._type, int(self._idx))
+        return "%s_%d" % (self._type, int(self._idx))
 
     __repr__ = __str__
 
     def __eq__(self, other):
-        return isinstance(other, Register) and self._type == other._type and self._idx == other._idx
+        return (
+            isinstance(other, Register)
+            and self._type == other._type
+            and self._idx == other._idx
+        )
 
     def __hash__(self):
         return hash((self._type, self._idx))
