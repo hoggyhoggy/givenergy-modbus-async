@@ -44,7 +44,6 @@ main = AsyncTyper()
 
 @main.async_command()
 async def watch_plant(host: str = '0.0.0.0', port: int = 8899):
-#async def watch_plant(host: str = '192.168.1.151', port: int = 8899):
     """Polls Inverter in a loop and displays key inverter values in CLI as they come in."""
     client = Client(host=host, port=port)
     await client.connect()
@@ -71,7 +70,8 @@ async def watch_plant(host: str = '0.0.0.0', port: int = 8899):
         table.add_row('[b]System time', inverter.system_time.isoformat(sep=" "))
         #table.add_row('[b]Status', f'{inverter.inverter_status} (fault code: {inverter.fault_code})')
         table.add_row('[b]System mode', str(inverter.system_mode))
-        table.add_row('[b]USB device inserted', str(inverter.usb_device_inserted))
+        table.add_row('[b]Eco Mode', str(inverter.battery_power_mode))
+        table.add_row('[b]DC Discharge', str(inverter.enable_discharge))
         table.add_row('[b]Total work time', f'{inverter.work_time_total}h')
         table.add_row('[b]Inverter heatsink', f'{inverter.temp_inverter_heatsink}°C')
         table.add_row('[b]Charger', f'{inverter.temp_charger}°C')
@@ -84,14 +84,15 @@ async def watch_plant(host: str = '0.0.0.0', port: int = 8899):
         table.add_row('[b]Demand', str(inverter.p_load_demand))
         table.add_row('[b]Grid In/Out', str(inverter.p_grid_out))
         table.add_row('[b]Inverter Power', str(inverter.p_inverter_out))
-        table.add_row('[b]Grid In/Out', str(inverter.p_pv1))
-        table.add_row('[b]Inverter Power', str(inverter.p_pv2))
+        table.add_row('[b]PV1 Power', str(inverter.p_pv1))
+        table.add_row('[b]PV2 Power', str(inverter.p_pv2))
         return table
 
     with Live(auto_refresh=False) as live:
         while True:
             live.update(generate_table(), refresh=True)
-            await asyncio.sleep(1)
+            await client.refresh_plant(True, max_batteries=1, retries=3, timeout=1)
+            await asyncio.sleep(1.2)
 
 ################# Battery Power Commands ######################
             
@@ -138,6 +139,8 @@ async def bat_discharge(val: bool, host: str = '0.0.0.0', port: int = 8899):
     """[TRUE / FALSE] - Enable the battery to discharge, depending on the mode and slots set."""
     client = Client(host=host, port=port)
     command = set_enable_discharge(val)[0]
+    await client.connect()
+    await client.execute([command],retries=3, timeout=1.0)
     responder(command,host,port,val)
 
 ################### Inverter Settings #####################
@@ -147,6 +150,8 @@ async def set_ac_charge(val: bool, host: str = '0.0.0.0', port: int = 8899):
     """[TRUE / FALSE] - Enable the battery to charge on AC, depending on the mode and slots set."""
     client = Client(host=host, port=port)
     command = set_enable_charge(val)[0]
+    await client.connect()
+    await client.execute([command],retries=3, timeout=1.0)
     responder(command,host,port,val)
 
 @main.async_command()
@@ -154,6 +159,8 @@ async def eco_on(val: str = 'ECO ENABLED', host: str = '0.0.0.0', port: int = 88
     """Set the battery discharge mode to match demand, avoiding importing power from the grid."""
     client = Client(host=host, port=port)
     command = set_discharge_mode_to_match_demand()[0]
+    await client.connect()
+    await client.execute([command],retries=3, timeout=1.0)
     responder(command,host,port,val)
 
 @main.async_command()
@@ -161,6 +168,8 @@ async def eco_off(val: str = 'ECO DISABLED', host: str = '0.0.0.0', port: int = 
     """Disables ECO mode which may export at full power to the grid if export slots are set"""
     client = Client(host=host, port=port)
     command = set_discharge_mode_max_power()[0]
+    await client.connect()
+    await client.execute([command],retries=3, timeout=1.0)
     responder(command,host,port,val)
 
 
@@ -178,6 +187,8 @@ async def dummy_call(val: str = 'enabled', host: str = '0.0.0.0', port: int = 88
     """Dummy call that just repeats back commands sent to & received from commands.py for testing"""
     client = Client(host=host, port=port)
     command = set_discharge_mode_to_match_demand()[0]
+    await client.connect()
+    await client.execute([command],retries=3, timeout=1.0)
     responder(command,host,port,val)
 
 ###### Pass Bool Example ######
@@ -186,6 +197,8 @@ async def dummy_call2(val: bool, host: str = '0.0.0.0', port: int = 8899):
     """Dummy call that just repeats back commands sent to & received from commands.py for testing"""
     client = Client(host=host, port=port)
     command = set_enable_charge(val)[0]
+    await client.connect()
+    await client.execute([command],retries=3, timeout=1.0)
     responder(command,host,port,val)
 
 ###### Pass Value Example ######
@@ -194,6 +207,8 @@ async def dummy_call3(val, host: str = '0.0.0.0', port: int = 8899):
     """Dummy call that just repeats back commands sent to & received from commands.py for testing"""
     client = Client(host=host, port=port)
     command = set_battery_discharge_limit(val)[0]
+    await client.connect()
+    await client.execute([command],retries=3, timeout=1.0)
     responder(command,host,port,val)
 
     
