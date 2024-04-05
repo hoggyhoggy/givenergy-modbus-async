@@ -91,8 +91,8 @@ async def watch_plant(host: str = '0.0.0.0', port: int = 8899):
     with Live(auto_refresh=False) as live:
         while True:
             live.update(generate_table(), refresh=True)
-            await client.refresh_plant(True, max_batteries=1, retries=3, timeout=1)
-            await asyncio.sleep(1.2)
+            await client.refresh_plant(True, max_batteries=1, retries=3, timeout=1.0)
+            await asyncio.sleep(10)
 
 ################# Battery Power Commands ######################
             
