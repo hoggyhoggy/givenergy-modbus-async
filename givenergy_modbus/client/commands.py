@@ -115,10 +115,10 @@ def refresh_plant_data(
 
 
 def disable_charge_target() -> list[TransparentRequest]:
-    """Removes SOC limit and target 100% charging."""
+    """Removes AC SOC limit and target 100% charging."""
     return [
         WriteHoldingRegisterRequest(RegisterMap.ENABLE_CHARGE_TARGET, False),
-        WriteHoldingRegisterRequest(RegisterMap.CHARGE_TARGET_SOC, 100),
+        WriteHoldingRegisterRequest(RegisterMap.CHARGE_TARGET_SOC, 100)
     ]
 
 
@@ -136,6 +136,12 @@ def set_charge_target(target_soc: int) -> list[TransparentRequest]:
         )
     return ret
 
+def set_charge_target_only(target_soc: int) -> list[TransparentRequest]:
+    """Sets inverter to stop charging when SOC reaches the desired level on AC Charge."""
+    target_soc = int(target_soc)
+    if not 4 <= target_soc <= 100:
+        raise ValueError(f"Specified SOC Limit ({target_soc}%) is not in [0-100]%")
+    return [WriteHoldingRegisterRequest(RegisterMap.CHARGE_TARGET_SOC, target_soc)]
 
 def set_enable_charge(enabled: bool) -> list[TransparentRequest]:
     """Enable the battery to charge, depending on the mode and slots set."""
