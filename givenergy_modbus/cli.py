@@ -94,6 +94,51 @@ async def watch_plant(host: str = '0.0.0.0', port: int = 8899):
             await client.refresh_plant(True, max_batteries=1, retries=3, timeout=1.0)
             await asyncio.sleep(10)
 
+@main.async_command()
+async def listen_plant(host: str = '0.0.0.0', port: int = 8899):
+    """Only listens to modbus rather than polls for updates and displays key inverter values in CLI as they come in."""
+    client = Client(host=host, port=port)
+    await client.connect()
+    
+    def generate_table() -> Table:
+        plant = client.plant
+        try:
+            inverter = plant.inverter
+        except KeyError as e:
+            return f'awaiting data...'
+        batteries = plant.batteries
+
+        table = Table(title='[b]Inverter', show_header=False, box=None)
+        #table.add_row('[b]Model', f'{inverter.inverter_model.name}, type code 0x{inverter.device_type_code}, module 0x{inverter.inverter_module:04x}')
+        table.add_row('[b]Serial number', plant.inverter_serial_number)
+        table.add_row('[b]Data adapter serial number', plant.data_adapter_serial_number)
+        #table.add_row('[b]Firmware version', inverter.inverter_firmware_version)
+   #     table.add_row('[b]System time', inverter.system_time.isoformat(sep=" "))
+        #table.add_row('[b]Status', f'{inverter.inverter_status} (fault code: {inverter.fault_code})')
+        table.add_row('[b]System mode', str(inverter.system_mode))
+        table.add_row('[b]Eco Mode', str(inverter.battery_power_mode))
+        table.add_row('[b]DC Discharge', str(inverter.enable_discharge))
+        table.add_row('[b]Total work time', f'{inverter.work_time_total}h')
+        table.add_row('[b]Inverter heatsink', f'{inverter.temp_inverter_heatsink}°C')
+        table.add_row('[b]Charger', f'{inverter.temp_charger}°C')
+        table.add_row('[b]Battery temp', f'{inverter.temp_battery}°C')
+        table.add_row('[b]Number of batteries', str(len(batteries)))
+        ##added to live update table:
+        table.add_row('[b]Inverter SOC', str(inverter.battery_percent))
+        table.add_row('[b]Battery Volt', str(inverter.v_battery))
+        table.add_row('[b]Battery Power', str(inverter.p_battery))
+        table.add_row('[b]Demand', str(inverter.p_load_demand))
+        table.add_row('[b]Grid In/Out', str(inverter.p_grid_out))
+        table.add_row('[b]Inverter Power', str(inverter.p_inverter_out))
+        table.add_row('[b]PV1 Power', str(inverter.p_pv1))
+        table.add_row('[b]PV2 Power', str(inverter.p_pv2))
+        return table
+
+    with Live(auto_refresh=False) as live:
+        while True:
+            live.update(generate_table(), refresh=True)
+            await asyncio.sleep(1)
+
 ################# Battery Power Commands ######################
             
 @main.async_command()
