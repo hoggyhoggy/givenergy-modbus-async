@@ -165,7 +165,7 @@ class Client:
         while hasattr(self, "reader") and self.reader and not self.reader.at_eof():
             frame = await self.reader.read(300)
             # await self.debug_frames['all'].put(frame)
-            async for message in self.framer.decode(frame):
+            for message in self.framer.decode(frame):
                 _logger.debug("Processing %s", message)
                 if isinstance(message, ExceptionBase):
                     _logger.warning(
