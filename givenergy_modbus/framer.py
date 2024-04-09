@@ -1,7 +1,7 @@
 import logging
 from abc import ABC
 from collections.abc import AsyncIterator
-from typing import Callable, Optional, Type, Union
+from typing import Callable, Optional, Type, Union, Iterator
 
 from givenergy_modbus.exceptions import ExceptionBase, InvalidFrame, InvalidPduState
 from givenergy_modbus.pdu import BasePDU, ClientIncomingMessage, ServerIncomingMessage
@@ -79,7 +79,7 @@ class Framer(ABC):
     _buffer: bytes = b''
     pdu_class: 'Type[BasePDU]'
 
-    async def decode(self, data: bytes) -> AsyncIterator[Union[BasePDU, ExceptionBase]]:
+    def decode(self, data: bytes) -> Iterator[Union[BasePDU, ExceptionBase]]:
         """Receive incoming network data and attempt to decode frames into messages.
 
         This method receives raw bytes as passed from the underlying transport and appends it onto an internal
