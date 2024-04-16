@@ -197,7 +197,9 @@ class InverterRegisterGetter(RegisterGetter):
         "enable_charge": Def(C.bool, None, HR(96)),
         "battery_low_voltage_protection_limit": Def(C.uint16, C.centi, HR(97)),
         "battery_high_voltage_protection_limit": Def(C.uint16, C.centi, HR(98)),
-        # skip voltage adjustment settings 99-107
+        # skip voltage adjustment settings 99-105
+        "battery_voltage_adjust": Def(C.uint16, C.centi, HR(105)), ##Adjust Battery Voltage? (From GivTCP list)
+        # skip voltage adjustment settings 96-107
         "battery_low_force_charge_time": Def(C.uint16, None, HR(108)),
         "enable_bms_read": Def(C.bool, None, HR(109)),
         "battery_soc_reserve": Def(C.uint16, None, HR(110)),
@@ -268,11 +270,12 @@ class InverterRegisterGetter(RegisterGetter):
         "v_n_bus": Def(C.deci, None, IR(4)),
         "v_ac1": Def(C.deci, None, IR(5)),
         "e_battery_throughput_total": Def(C.uint32, C.deci, IR(6), IR(7)),
-        "i_pv1": Def(C.centi, None, IR(8)),
-        "i_pv2": Def(C.centi, None, IR(9)),
-        "i_ac1": Def(C.centi, None, IR(10)),
+        "i_pv1": Def(C.deci, None, IR(8)),
+        "i_pv2": Def(C.deci, None, IR(9)),
+        "i_ac1": Def(C.deci, None, IR(10)),
         "e_pv_total": Def(C.uint32, C.deci, IR(11), IR(12)),
         "f_ac1": Def(C.centi, None, IR(13)),
+        "v_highbrigh_bus": Def(C.deci, None, IR(15)), ##HV Bus??? (from Givtcp?)       
         "e_pv1_day": Def(C.deci, None, IR(17)),
         "p_pv1": Def(C.uint16, None, IR(18)),
         "e_pv2_day": Def(C.deci, None, IR(19)),

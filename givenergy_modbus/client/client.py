@@ -161,7 +161,7 @@ class Client:
         refresh_period: float = 15.0,
         max_batteries: int = 5,
         timeout: float = 1.0,
-        retries: int = 0,
+        retries: int = 1,
         passive: bool = False,
     ):
         """Refresh data about the Plant."""

@@ -108,3 +108,10 @@ class Plant(GivEnergyBaseModel):
             Battery.from_orm(self.register_caches[i + 0x32])
             for i in range(self.number_batteries)
         ]
+
+##try single battery for testing
+    @property
+    def batteries_test(self) -> list[Battery]:
+        """Return Battery models for the Plant."""
+        return Battery.from_orm(self.register_caches[0x32])
+        
