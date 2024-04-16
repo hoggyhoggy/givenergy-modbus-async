@@ -65,8 +65,7 @@ def refresh_additional_holding_registers(
 
 def refresh_plant_data(
     complete: bool,
-    number_batteries: int = 1,
-    max_batteries: int = 5,
+    number_batteries: int = 0,
     additional_holding_registers: Optional[list[int]] = None,
 ) -> list[TransparentRequest]:
     """Refresh plant data."""
@@ -94,17 +93,16 @@ def refresh_plant_data(
                 base_register=120, register_count=60, slave_address=0x32
             )
         )
-        requests.append(
-            ReadInputRegistersRequest(
-                base_register=120, register_count=60, slave_address=0x32
-            )
-        )
+#        requests.append(
+#            ReadInputRegistersRequest(
+#                base_register=120, register_count=60, slave_address=0x32
+#            )
+#        )
 
         if additional_holding_registers:
             for hr in additional_holding_registers:
                 requests.extend(refresh_additional_holding_registers(hr))
 
-        number_batteries = max_batteries
     for i in range(number_batteries):
         requests.append(
             ReadInputRegistersRequest(

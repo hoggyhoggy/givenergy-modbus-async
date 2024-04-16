@@ -3,7 +3,7 @@ from typing import Any
 
 from givenergy_modbus.model import GivEnergyBaseModel
 from givenergy_modbus.model.battery import Battery
-from givenergy_modbus.model.inverter import Inverter
+from givenergy_modbus.model.inverter import Inverter, Model, Generation
 from givenergy_modbus.model.register import HR, IR
 from givenergy_modbus.model.register_cache import (
     RegisterCache,
@@ -110,8 +110,8 @@ class Plant(GivEnergyBaseModel):
         ]
 
 ##try single battery for testing
-    @property
-    def batteries_test(self) -> list[Battery]:
-        """Return Battery models for the Plant."""
-        return Battery.from_orm(self.register_caches[0x32])
+#    @property
+#    def batteries_test(self) -> list[Battery]:
+#        """Return Battery models for the Plant."""
+#        return Battery.from_orm(self.register_caches[0x32])
         

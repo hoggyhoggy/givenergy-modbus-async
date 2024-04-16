@@ -46,7 +46,10 @@ main = AsyncTyper()
 async def detect(val: str = 'enabled', host: str = '0.0.0.0', port: int = 8899):
     """Dummy call that just repeats back commands sent to & received from commands.py for testing"""  
     client = Client(host=host, port=port)
-    client.detect_plant
+    await client.connect()
+    await client.detect_plant()
+    print (str(client.plant.number_batteries))
+    print (str(client.plant.additional_holding_registers))
 
 
 @main.async_command()
@@ -57,7 +60,8 @@ async def watch_plant2(host: str = '0.0.0.0', port: int = 8899):
     #await client.detect_plant()
     #await client.refresh_plant(True, max_batteries=5, retries=3, timeout=1.0)
     #await client.watch_plant(host, port)
-    await client.refresh_plant(True, max_batteries=5, retries=3, timeout=1.0)
+    await client.refresh_plant(True, number_batteries=2, retries=3, timeout=3.0)
+    #print (client.plant.inverter)
     
     def generate_table() -> Table:
         plant = client.plant
@@ -66,7 +70,7 @@ async def watch_plant2(host: str = '0.0.0.0', port: int = 8899):
         except KeyError as e:
             return f'awaiting data...'
         ##sort this out for multiple bats
-        batteries = plant.batteries_test #test for bat registers
+        batteries = plant.batteries #test for bat registers
 
         table = Table(title='[b]Watch Plant Mode', show_header=False, box=None)
         #table.add_row('[b]Model', f'{inverter.inverter_model.name}, type code 0x{inverter.device_type_code}, module 0x{inverter.inverter_module:04x}')
@@ -113,29 +117,54 @@ async def watch_plant2(host: str = '0.0.0.0', port: int = 8899):
         #table.add_row('[b]Status', f'{inverter.inverter_status} (fault code: {inverter.fault_code})')
         table.add_row()
         table.add_row('[b]---Battery Data---')
-      # table.add_row('[b]Number of batteries', str(len(batteries)))
+        table.add_row('[b]Number of batteries', str(len(batteries)))
         #######sort multiple battery addressing out################
-        table.add_row('[b]Inverter Combined SOC', f'{str(inverter.battery_percent)}%')
-        table.add_row('[b]Battery 1 Raw SOC', f'{str(batteries.soc)}%','[b]Bat Cycles:', f'{str(batteries.num_cycles)}')
-        table.add_row('[b]Battery 1 Volt', f'{str(batteries.v_out)}V','[b]Design Cap:', f'{str(batteries.cap_design)}AH')
-        table.add_row('[b]Battery 1 Current', f'{str(inverter.i_battery)}A','[b]Calib Cap:', f'{str(batteries.cap_calibrated)}AH')
-        table.add_row('[b]Battery 1 Power', f'{str(inverter.p_battery)}W','[b]Remaining Cap:', f'{str(batteries.cap_remaining)}AH')
-        table.add_row('[b]UV Limit:', f'{str(inverter.battery_low_voltage_protection_limit)}V','[b]OV Limit:', f'{str(inverter.battery_high_voltage_protection_limit)}V','[b]Bat #Volt Adjust?:', f'{str(inverter.battery_voltage_adjust)}V')
-        table.add_row()
-        table.add_row('[b]---Bat 1 Cell Data---')
-        table.add_row('[b]Cell 1', f'{str(batteries.v_cell_01)}V','[b]Cell 2', f'{str(batteries.v_cell_02)}V','[b]Cell 3', f'{str(batteries.v_cell_03)}V','[b]Cell 4', f'{str(batteries.v_cell_04)}V')
-        table.add_row('[b]Cell 5', f'{str(batteries.v_cell_05)}V','[b]Cell 6', f'{str(batteries.v_cell_06)}V','[b]Cell 7', f'{str(batteries.v_cell_07)}V','[b]Cell 8', f'{str(batteries.v_cell_08)}V')
-        table.add_row('[b]Cell 9', f'{str(batteries.v_cell_09)}V','[b]Cell 10', f'{str(batteries.v_cell_10)}V','[b]Cell 11', f'{str(batteries.v_cell_11)}V','[b]Cell 12', f'{str(batteries.v_cell_12)}V')
-        table.add_row('[b]Cell 13', f'{str(batteries.v_cell_13)}V','[b]Cell 14', f'{str(batteries.v_cell_14)}V','[b]Cell 15', f'{str(batteries.v_cell_15)}V','[b]Cell 16', f'{str(batteries.v_cell_16)}V')
+        for i in range(len(batteries)):
+
+            table.add_row('[b]Inverter Combined SOC', f'{str(inverter.battery_percent)}%')
+            table.add_row('[b]Battery ', f'{i}', ' Raw SOC', f'{str(batteries[i].soc)}%','[b]Bat Cycles:', f'{str(batteries[i].num_cycles)}')
+            table.add_row('[b]Battery ', f'{i}', ' Volt', f'{str(batteries[i].v_out)}V','[b]Design Cap:', f'{str(batteries[i].cap_design)}AH')
+            table.add_row('[b]Battery ', f'{i}', ' Current', f'{str(inverter.i_battery)}A','[b]Calib Cap:', f'{str(batteries[i].cap_calibrated)}AH')
+            table.add_row('[b]Battery ', f'{i}', ' Power', f'{str(inverter.p_battery)}W','[b]Remaining Cap:', f'{str(batteries[i].cap_remaining)}AH')
+            table.add_row('[b]UV Limit:', f'{str(inverter.battery_low_voltage_protection_limit)}V','[b]OV Limit:', f'{str(inverter.battery_high_voltage_protection_limit)}V','[b]Bat #Volt Adjust?:', f'{str(inverter.battery_voltage_adjust)}V')
+            table.add_row()
+            table.add_row('[b]---Bat ', f'{i}', ' Cell Data---')
+            table.add_row('[b]Cell 1', f'{str(batteries[i].v_cell_01)}V','[b]Cell 2', f'{str(batteries[i].v_cell_02)}V','[b]Cell 3', f'{str(batteries[i].v_cell_03)}V','[b]Cell 4', f'{str(batteries[i].v_cell_04)}V')
+            table.add_row('[b]Cell 5', f'{str(batteries[i].v_cell_05)}V','[b]Cell 6', f'{str(batteries[i].v_cell_06)}V','[b]Cell 7', f'{str(batteries[i].v_cell_07)}V','[b]Cell 8', f'{str(batteries[i].v_cell_08)}V')
+            table.add_row('[b]Cell 9', f'{str(batteries[i].v_cell_09)}V','[b]Cell 10', f'{str(batteries[i].v_cell_10)}V','[b]Cell 11', f'{str(batteries[i].v_cell_11)}V','[b]Cell 12', f'{str(batteries[i].v_cell_12)}V')
+            table.add_row('[b]Cell 13', f'{str(batteries[i].v_cell_13)}V','[b]Cell 14', f'{str(batteries[i].v_cell_14)}V','[b]Cell 15', f'{str(batteries[i].v_cell_15)}V','[b]Cell 16', f'{str(batteries[i].v_cell_16)}V')
         
         return table
 
     with Live(auto_refresh=False) as live:
         while True:
             live.update(generate_table(), refresh=True)
-            await client.refresh_plant(True, max_batteries=1, retries=3, timeout=1.0)
+            await client.refresh_plant(True, number_batteries=1, retries=3, timeout=1.0)
             await asyncio.sleep(10)
-            
+
+@main.async_command()
+async def watch_plant3(host: str = '0.0.0.0', port: int = 8899):
+    """Polls Inverter in a loop and displays key inverter values in CLI as they come in."""
+    client = Client(host=host, port=port)
+    print (client.plant.number_batteries)
+    await client.connect()
+    await client.detect_plant()
+    print (client.plant.number_batteries)
+    await client.refresh_plant(True, number_batteries=client.plant.number_batteries, retries=3, timeout=1.0)
+    #await client.watch_plant(host, port)
+    print (client.plant.inverter)
+
+@main.async_command()
+async def watch_plant4(host: str = '0.0.0.0', port: int = 8899):
+    """Polls Inverter in a loop and displays key inverter values in CLI as they come in."""
+    client = Client(host=host, port=port)
+    await client.connect()
+    await client.detect_plant()
+    numbat= client.plant.number_batteries
+    await client.close()
+    await client.watch_plant(None,10,numbat, retries=3, timeout=3.0)
+    #await client.watch_plant(host, port)
+    print (client.plant.inverter)
 
 @main.async_command()
 async def watch_plant(host: str = '0.0.0.0', port: int = 8899):
@@ -147,7 +176,7 @@ async def watch_plant(host: str = '0.0.0.0', port: int = 8899):
         ReadHoldingRegistersRequest(base_register=60, register_count=60, slave_address=0x32),
         ReadHoldingRegistersRequest(base_register=120, register_count=60, slave_address=0x32),
     ],
-        retries=3, timeout=1.0)
+        retries=3, timeout=3.0)
 
     def generate_table() -> Table:
         plant = client.plant
@@ -441,6 +470,9 @@ def responder(command,host,port,val):
     table.add_row('[b]Port:', str(port))
     table.add_row('[b]Value Sent:', str(val))
     console.print(table)
-    
+
+
+asyncio.run(watch_plant4('192.168.2.3',8899))
+
 #if __name__ == "__main__":
- #   app()
+#    main()

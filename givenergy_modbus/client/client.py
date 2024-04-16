@@ -77,10 +77,13 @@ class Client:
 
     async def detect_plant(self, timeout: int = 1, retries: int = 3) -> None:
         """Detect inverter capabilities that influence how subsequent requests are made."""
-        _logger.info("Detectig plant")
+        _logger.info("Detecting plant")
+        #print("Detecting plant")
 
         # Refresh the core set of registers that work across all inverters
-        await self.refresh_plant(True, timeout=timeout, retries=retries)
+        #await self.refresh_plant(True, timeout=timeout, retries=retries)
+        await self.refresh_plant(True, number_batteries=5, retries=3, timeout=1.0)
+        #print("Plant Detected")
 
         # Use that to detect the number of batteries
         self.plant.detect_batteries()
@@ -88,7 +91,7 @@ class Client:
 
         # Some devices support additional registers
         # When unsupported, devices appear to simple ignore requests
-        possible_additional_holding_registers = [300]
+        possible_additional_holding_registers = [180, 240, 300, 360]
         for hr in possible_additional_holding_registers:
             try:
                 reqs = commands.refresh_additional_holding_registers(hr)
@@ -144,13 +147,14 @@ class Client:
     async def refresh_plant(
         self,
         full_refresh: bool = True,
-        max_batteries: int = 5,
+        number_batteries: int = 0,
         timeout: float = 1.0,
         retries: int = 0,
     ) -> Plant:
         """Refresh data about the Plant."""
+
         reqs = commands.refresh_plant_data(
-            full_refresh, self.plant.number_batteries, max_batteries
+            full_refresh, number_batteries, additional_holding_registers=self.plant.additional_holding_registers
         )
         await self.execute(reqs, timeout=timeout, retries=retries)
         return self.plant
@@ -159,14 +163,14 @@ class Client:
         self,
         handler: Optional[Callable] = None,
         refresh_period: float = 15.0,
-        max_batteries: int = 5,
+        num_batteries: int = 5,
         timeout: float = 1.0,
         retries: int = 1,
         passive: bool = False,
     ):
         """Refresh data about the Plant."""
         await self.connect()
-        await self.refresh_plant(True, max_batteries=max_batteries)
+        await self.refresh_plant(True, number_batteries=num_batteries)
         while True:
             if handler:
                 handler()
@@ -176,6 +180,9 @@ class Client:
                 await self.execute(
                     reqs, timeout=timeout, retries=retries, return_exceptions=True
                 )
+                print (self.plant.inverter)
+                # How do I get this regularly updated data out of here into the read.py routine...
+                # Save to pkl and monitor?? or call read.py function to process here?
 
     async def one_shot_command(
         self, requests: list[TransparentRequest], timeout=1.5, retries=0
