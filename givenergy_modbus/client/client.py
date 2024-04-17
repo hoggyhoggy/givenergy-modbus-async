@@ -78,10 +78,13 @@ class Client:
     async def detect_plant(self, timeout: int = 1, retries: int = 3) -> None:
         """Detect inverter capabilities that influence how subsequent requests are made."""
         _logger.info("Detecting plant")
-        #print("Detecting plant")
-
+        from givenergy_modbus.model.inverter import Model
         # Refresh the core set of registers that work across all inverters
         #await self.refresh_plant(True, timeout=timeout, retries=retries)
+        
+        #Force 0x11 slave address only during detect
+        self.plant.slave_address=0x11
+        
         await self.refresh_plant(True, number_batteries=5, retries=3, timeout=1.0)
         #print("Plant Detected")
 
@@ -89,12 +92,18 @@ class Client:
         self.plant.detect_batteries()
         _logger.info("Batteries detected: %d", self.plant.number_batteries)
 
+        #set isAIO as needed
+        if self.plant.inverter.model == Model.ALL_IN_ONE:   # Check what other devices need 0x11
+            self.plant.slave_address = 0x11
+        else:
+            self.plant.slave_address = 0x31
+
         # Some devices support additional registers
         # When unsupported, devices appear to simple ignore requests
         possible_additional_holding_registers = [180, 240, 300, 360]
         for hr in possible_additional_holding_registers:
             try:
-                reqs = commands.refresh_additional_holding_registers(hr)
+                reqs = commands.refresh_additional_holding_registers(hr,self.plant.slave_address)
                 await self.execute(reqs, timeout=timeout, retries=retries)
                 _logger.info(
                     "Detected additional holding register support (base_register=%d)",
@@ -154,7 +163,7 @@ class Client:
         """Refresh data about the Plant."""
 
         reqs = commands.refresh_plant_data(
-            full_refresh, number_batteries, additional_holding_registers=self.plant.additional_holding_registers
+            full_refresh, number_batteries, additional_holding_registers=self.plant.additional_holding_registers, slave_addr=self.plant.slave_address
         )
         await self.execute(reqs, timeout=timeout, retries=retries)
         return self.plant

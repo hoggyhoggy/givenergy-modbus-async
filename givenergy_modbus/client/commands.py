@@ -46,19 +46,76 @@ class RegisterMap:
     BATTERY_DISCHARGE_MIN_POWER_RESERVE = 114
     CHARGE_TARGET_SOC = 116
     REBOOT = 163
+    CHARGE_TARGET_SOC_1 = 242
+    CHARGE_SLOT_2_START = 243
+    CHARGE_SLOT_2_END = 244
+    CHARGE_TARGET_SOC_2 = 245
+    CHARGE_SLOT_3_START = 246
+    CHARGE_SLOT_3_END = 247
+    CHARGE_TARGET_SOC_3 = 248
+    CHARGE_SLOT_4_START = 249
+    CHARGE_SLOT_4_END = 250
+    CHARGE_TARGET_SOC_4 = 251
+    CHARGE_SLOT_5_START = 252
+    CHARGE_SLOT_5_END = 253
+    CHARGE_TARGET_SOC_5 = 254
+    CHARGE_SLOT_6_START = 255
+    CHARGE_SLOT_6_END = 256
+    CHARGE_TARGET_SOC_6 = 257
+    CHARGE_SLOT_7_START = 258
+    CHARGE_SLOT_7_END = 259
+    CHARGE_TARGET_SOC_7 = 260
+    CHARGE_SLOT_8_START = 261
+    CHARGE_SLOT_8_END = 262
+    CHARGE_TARGET_SOC_8 = 263
+    CHARGE_SLOT_9_START = 264
+    CHARGE_SLOT_9_END = 265
+    CHARGE_TARGET_SOC_9 = 266
+    CHARGE_SLOT_10_START = 267
+    CHARGE_SLOT_10_END = 268
+    CHARGE_TARGET_SOC_10 = 269
+    DISCHARGE_TARGET_SOC_1 = 272
+    DISCHARGE_TARGET_SOC_2 = 275
+    DISCHARGE_SLOT_3_START = 276
+    DISCHARGE_SLOT_3_END = 277
+    DISCHARGE_TARGET_SOC_3 = 278
+    DISCHARGE_SLOT_4_START = 279
+    DISCHARGE_SLOT_4_END = 280
+    DISCHARGE_TARGET_SOC_4 = 281
+    DISCHARGE_SLOT_5_START = 282
+    DISCHARGE_SLOT_5_END = 283
+    DISCHARGE_TARGET_SOC_5 = 284
+    DISCHARGE_SLOT_6_START = 285
+    DISCHARGE_SLOT_6_END = 286
+    DISCHARGE_TARGET_SOC_6 = 287
+    DISCHARGE_SLOT_7_START = 288
+    DISCHARGE_SLOT_7_END = 289
+    DISCHARGE_TARGET_SOC_7 = 290
+    DISCHARGE_SLOT_8_START = 291
+    DISCHARGE_SLOT_8_END = 292
+    DISCHARGE_TARGET_SOC_8 = 293
+    DISCHARGE_SLOT_9_START = 294
+    DISCHARGE_SLOT_9_END = 295
+    DISCHARGE_TARGET_SOC_9 = 296
+    DISCHARGE_SLOT_10_START = 297
+    DISCHARGE_SLOT_10_END = 298
+    DISCHARGE_TARGET_SOC_10 = 299
     BATTERY_PAUSE_MODE = 318
-
+    BATTERY_PAUSE_SLOT_START = 319
+    BATTERY_PAUSE_SLOT_END = 320
 
 def refresh_additional_holding_registers(
     base_register: int,
+    slave_addr: int,
 ) -> list[TransparentRequest]:
     """Requests one specific set of holding registers.
 
     This is intended to be used in cases where registers may or may not be present,
     depending on device capabilities."""
+    
     return [
         ReadHoldingRegistersRequest(
-            base_register=base_register, register_count=60, slave_address=0x32
+            base_register=base_register, register_count=60, slave_address=slave_addr
         )
     ]
 
@@ -66,42 +123,44 @@ def refresh_additional_holding_registers(
 def refresh_plant_data(
     complete: bool,
     number_batteries: int = 0,
+    slave_addr: int = 0x31,
     additional_holding_registers: Optional[list[int]] = None,
 ) -> list[TransparentRequest]:
     """Refresh plant data."""
+
     requests: list[TransparentRequest] = [
         ReadInputRegistersRequest(
-            base_register=0, register_count=60, slave_address=0x32
+            base_register=0, register_count=60, slave_address=slave_addr
         ),
         ReadInputRegistersRequest(
-            base_register=180, register_count=60, slave_address=0x32
+            base_register=180, register_count=60, slave_address=slave_addr
         ),
     ]
     if complete:
         requests.append(
             ReadHoldingRegistersRequest(
-                base_register=0, register_count=60, slave_address=0x32
+                base_register=0, register_count=60, slave_address=slave_addr
             )
         )
         requests.append(
             ReadHoldingRegistersRequest(
-                base_register=60, register_count=60, slave_address=0x32
+                base_register=60, register_count=60, slave_address=slave_addr
             )
         )
         requests.append(
             ReadHoldingRegistersRequest(
-                base_register=120, register_count=60, slave_address=0x32
+                base_register=120, register_count=60, slave_address=slave_addr
             )
         )
 #        requests.append(
 #            ReadInputRegistersRequest(
-#                base_register=120, register_count=60, slave_address=0x32
+#                base_register=120, register_count=60, slave_address=slave_addr
 #            )
 #        )
 
         if additional_holding_registers:
             for hr in additional_holding_registers:
-                requests.extend(refresh_additional_holding_registers(hr))
+                requests.extend(refresh_additional_holding_registers(hr, slave_addr))
 
     for i in range(number_batteries):
         requests.append(

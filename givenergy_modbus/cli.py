@@ -43,13 +43,15 @@ class AsyncTyper(typer.Typer):
 main = AsyncTyper()
 
 @main.async_command()
-async def detect(val: str = 'enabled', host: str = '0.0.0.0', port: int = 8899):
+async def detect(host: str = '0.0.0.0', port: int = 8899):
     """Dummy call that just repeats back commands sent to & received from commands.py for testing"""  
     client = Client(host=host, port=port)
     await client.connect()
     await client.detect_plant()
+    await client.close()
     print (str(client.plant.number_batteries))
     print (str(client.plant.additional_holding_registers))
+    print (str(client.plant.slave_address))
 
 
 @main.async_command()
@@ -57,11 +59,8 @@ async def watch_plant2(host: str = '0.0.0.0', port: int = 8899):
     """Polls Inverter in a loop and displays key inverter values in CLI as they come in."""
     client = Client(host=host, port=port)
     await client.connect()
-    #await client.detect_plant()
-    #await client.refresh_plant(True, max_batteries=5, retries=3, timeout=1.0)
-    #await client.watch_plant(host, port)
-    await client.refresh_plant(True, number_batteries=2, retries=3, timeout=3.0)
-    #print (client.plant.inverter)
+    await client.detect_plant()
+    await client.refresh_plant(True, number_batteries=client.plant.number_batteries, retries=3, timeout=3.0)
     
     def generate_table() -> Table:
         plant = client.plant
@@ -120,7 +119,7 @@ async def watch_plant2(host: str = '0.0.0.0', port: int = 8899):
         table.add_row('[b]Number of batteries', str(len(batteries)))
         #######sort multiple battery addressing out################
         for i in range(len(batteries)):
-
+            table.add_row('[b]Battery No. ', f'{str(i)}',' - ',f'{str(batteries[i].serial_number)}')
             table.add_row('[b]Inverter Combined SOC', f'{str(inverter.battery_percent)}%')
             table.add_row('[b]Battery ', f'{i}', ' Raw SOC', f'{str(batteries[i].soc)}%','[b]Bat Cycles:', f'{str(batteries[i].num_cycles)}')
             table.add_row('[b]Battery ', f'{i}', ' Volt', f'{str(batteries[i].v_out)}V','[b]Design Cap:', f'{str(batteries[i].cap_design)}AH')
@@ -143,7 +142,7 @@ async def watch_plant2(host: str = '0.0.0.0', port: int = 8899):
             await asyncio.sleep(10)
 
 @main.async_command()
-async def watch_plant3(host: str = '0.0.0.0', port: int = 8899):
+async def test(host: str = '0.0.0.0', port: int = 8899):
     """Polls Inverter in a loop and displays key inverter values in CLI as they come in."""
     client = Client(host=host, port=port)
     print (client.plant.number_batteries)
@@ -152,18 +151,7 @@ async def watch_plant3(host: str = '0.0.0.0', port: int = 8899):
     print (client.plant.number_batteries)
     await client.refresh_plant(True, number_batteries=client.plant.number_batteries, retries=3, timeout=1.0)
     #await client.watch_plant(host, port)
-    print (client.plant.inverter)
-
-@main.async_command()
-async def watch_plant4(host: str = '0.0.0.0', port: int = 8899):
-    """Polls Inverter in a loop and displays key inverter values in CLI as they come in."""
-    client = Client(host=host, port=port)
-    await client.connect()
-    await client.detect_plant()
-    numbat= client.plant.number_batteries
     await client.close()
-    await client.watch_plant(None,10,numbat, retries=3, timeout=3.0)
-    #await client.watch_plant(host, port)
     print (client.plant.inverter)
 
 @main.async_command()
@@ -472,7 +460,7 @@ def responder(command,host,port,val):
     console.print(table)
 
 
-asyncio.run(watch_plant4('192.168.2.3',8899))
+asyncio.run(watch_plant2('192.168.2.3',8899))
 
 #if __name__ == "__main__":
 #    main()

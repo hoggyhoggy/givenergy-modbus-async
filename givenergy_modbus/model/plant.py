@@ -28,6 +28,7 @@ class Plant(GivEnergyBaseModel):
     inverter_serial_number: str = ""
     data_adapter_serial_number: str = ""
     number_batteries: int = 0
+    slave_address: int = 0x31
 
     class Config:  # noqa: D106
         allow_mutation = True
@@ -36,7 +37,7 @@ class Plant(GivEnergyBaseModel):
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
         if not self.register_caches:
-            self.register_caches = {0x32: RegisterCache()}
+            self.register_caches = {self.slave_address: RegisterCache()}
 
     def update(self, pdu: ClientIncomingMessage):
         """Update the Plant state from a PDU message."""
@@ -53,7 +54,7 @@ class Plant(GivEnergyBaseModel):
 
         if pdu.slave_address in (0x11, 0x00):
             # rewrite cloud and mobile app responses to "normal" inverter address
-            slave_address = 0x32
+            slave_address = self.slave_address
         else:
             slave_address = pdu.slave_address
 
@@ -96,16 +97,17 @@ class Plant(GivEnergyBaseModel):
                 break
         self.number_batteries = i
 
+
     @property
     def inverter(self) -> Inverter:
         """Return Inverter model for the Plant."""
-        return Inverter.from_orm(self.register_caches[0x32])
+        return Inverter.from_orm(self.register_caches[self.slave_address])
 
     @property
     def batteries(self) -> list[Battery]:
         """Return Battery models for the Plant."""
         return [
-            Battery.from_orm(self.register_caches[i + 0x32])
+            Battery.from_orm(self.register_caches[i + self.slave_address])
             for i in range(self.number_batteries)
         ]
 
@@ -113,5 +115,5 @@ class Plant(GivEnergyBaseModel):
 #    @property
 #    def batteries_test(self) -> list[Battery]:
 #        """Return Battery models for the Plant."""
-#        return Battery.from_orm(self.register_caches[0x32])
+#        return Battery.from_orm(self.register_caches[self.slave_address])
         
