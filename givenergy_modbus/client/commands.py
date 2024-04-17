@@ -7,6 +7,7 @@ from typing_extensions import deprecated  # type: ignore[attr-defined]
 
 from givenergy_modbus.model import TimeSlot
 from givenergy_modbus.model.inverter import (
+    Inverter,
     BatteryPauseMode,
 )
 from givenergy_modbus.pdu import (
@@ -15,6 +16,10 @@ from givenergy_modbus.pdu import (
     TransparentRequest,
     WriteHoldingRegisterRequest,
 )
+
+# TODO: This list is deprecated. Use write_named_register() to find the
+# register number from the master list in the inverter and perform
+# validity checks.
 
 
 class RegisterMap:
@@ -47,6 +52,15 @@ class RegisterMap:
     CHARGE_TARGET_SOC = 116
     REBOOT = 163
     BATTERY_PAUSE_MODE = 318
+
+
+# Helper to look up an inverter holding register by name
+# and prepare a write request. Value range checking gets
+# done automatically.
+def write_named_register(name: str, value: int) -> TransparentRequest:
+    """Prepare a request to write to a register."""
+    idx = Inverter.lookup_writable_register(name, value)
+    return WriteHoldingRegisterRequest(idx, value)
 
 
 def refresh_plant_data(

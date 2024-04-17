@@ -16,37 +16,6 @@ from givenergy_modbus.pdu.transparent import (
 
 _logger = logging.getLogger(__name__)
 
-# Canonical list of registers that are safe to write to.
-WRITE_SAFE_REGISTERS = {
-    20,  # ENABLE_CHARGE_TARGET
-    27,  # BATTERY_POWER_MODE
-    29,  # SOC_FORCE_ADJUST
-    31,  # CHARGE_SLOT_2_START
-    32,  # CHARGE_SLOT_2_END
-    35,  # SYSTEM_TIME_YEAR
-    36,  # SYSTEM_TIME_MONTH
-    37,  # SYSTEM_TIME_DAY
-    38,  # SYSTEM_TIME_HOUR
-    39,  # SYSTEM_TIME_MINUTE
-    40,  # SYSTEM_TIME_SECOND
-    44,  # DISCHARGE_SLOT_2_START
-    45,  # DISCHARGE_SLOT_2_END
-    50,  # ACTIVE_POWER_RATE
-    56,  # DISCHARGE_SLOT_1_START
-    57,  # DISCHARGE_SLOT_1_END
-    59,  # ENABLE_DISCHARGE
-    94,  # CHARGE_SLOT_1_START
-    95,  # CHARGE_SLOT_1_END
-    96,  # ENABLE_CHARGE
-    110,  # BATTERY_SOC_RESERVE
-    111,  # BATTERY_CHARGE_LIMIT
-    112,  # BATTERY_DISCHARGE_LIMIT
-    114,  # BATTERY_DISCHARGE_MIN_POWER_RESERVE
-    116,  # CHARGE_TARGET_SOC
-    163,  # REBOOT
-}
-
-
 class WriteHoldingRegister(TransparentMessage, ABC):
     """Request & Response PDUs for function #6/Write Holding Register."""
 
@@ -124,8 +93,6 @@ class WriteHoldingRegisterRequest(WriteHoldingRegister, TransparentRequest):
     def ensure_valid_state(self):
         """Sanity check our internal state."""
         super().ensure_valid_state()
-        if self.register not in WRITE_SAFE_REGISTERS:
-            raise InvalidPduState(f"HR({self.register}) is not safe to write to", self)
 
     def _update_check_code(self):
         crc_builder = PayloadEncoder()
@@ -149,8 +116,6 @@ class WriteHoldingRegisterResponse(WriteHoldingRegister, TransparentResponse):
     def ensure_valid_state(self):
         """Sanity check our internal state."""
         super().ensure_valid_state()
-        if self.register not in WRITE_SAFE_REGISTERS and not self.error:
-            _logger.warning(f"{self} is not safe for writing")
 
 
 __all__ = ()
