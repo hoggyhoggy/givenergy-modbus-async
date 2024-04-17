@@ -9,7 +9,9 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from givenergy_modbus.model.register_cache import RegisterCache
+    from givenergy_modbus.model.register_cache import (
+        RegisterCache,
+    )
 
 
 class GivEnergyBaseModel(BaseModel):
@@ -43,7 +45,9 @@ class TimeSlot:
     end: time
 
     @classmethod
-    def from_components(cls, start_hour: int, start_minute: int, end_hour: int, end_minute: int):
+    def from_components(
+        cls, start_hour: int, start_minute: int, end_hour: int, end_minute: int
+    ):
         """Shorthand for the individual datetime.time constructors."""
         return cls(time(start_hour, start_minute), time(end_hour, end_minute))
 
@@ -51,11 +55,11 @@ class TimeSlot:
     def from_repr(cls, start: int | str, end: int | str):
         """Converts from human-readable/ASCII representation: '0034' -> 00:34."""
         if isinstance(start, int):
-            start = f'{start:04d}'
+            start = f"{start:04d}"
         start_hour = int(start[:-2])
         start_minute = int(start[-2:])
         if isinstance(end, int):
-            end = f'{end:04d}'
+            end = f"{end:04d}"
         end_hour = int(end[:-2])
         end_minute = int(end[-2:])
         return cls(time(start_hour, start_minute), time(end_hour, end_minute))
