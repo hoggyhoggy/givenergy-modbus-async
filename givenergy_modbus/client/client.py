@@ -96,7 +96,7 @@ class Client:
         if self.plant.inverter.model == Model.ALL_IN_ONE:   # Check what other devices need 0x11
             self.plant.slave_address = 0x11
         else:
-            self.plant.slave_address = 0x31
+            self.plant.slave_address = 0x32
 
         # Some devices support additional registers
         # When unsupported, devices appear to simple ignore requests

@@ -460,7 +460,7 @@ def responder(command,host,port,val):
     console.print(table)
 
 
-asyncio.run(watch_plant2('192.168.2.3',8899))
+asyncio.run(test('192.168.2.3',8899))
 
 #if __name__ == "__main__":
 #    main()

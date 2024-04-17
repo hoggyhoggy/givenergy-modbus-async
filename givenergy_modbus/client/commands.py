@@ -123,7 +123,7 @@ def refresh_additional_holding_registers(
 def refresh_plant_data(
     complete: bool,
     number_batteries: int = 0,
-    slave_addr: int = 0x31,
+    slave_addr: int = 0x32,
     additional_holding_registers: Optional[list[int]] = None,
 ) -> list[TransparentRequest]:
     """Refresh plant data."""
