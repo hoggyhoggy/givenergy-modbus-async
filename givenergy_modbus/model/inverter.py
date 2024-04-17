@@ -1,6 +1,6 @@
 from enum import IntEnum, StrEnum
 import math
-
+from typing import Optional
 from givenergy_modbus.model.register import (
     Converter as C,
     HR,
@@ -125,6 +125,8 @@ class Status(IntEnum):
 class Inverter(RegisterGetter):
     """Structured format for all inverter attributes."""
 
+    # TODO: add register aliases and valid=(min,max) for writable registers
+
     REGISTER_LUT = {
         #
         # Holding Registers, block 0-59
@@ -143,7 +145,7 @@ class Inverter(RegisterGetter):
         "serial_number": Def(C.string, None, HR(13), HR(14), HR(15), HR(16), HR(17)),
         "first_battery_bms_firmware_version": Def(C.uint16, None, HR(18)),
         "dsp_firmware_version": Def(C.uint16, None, HR(19)),
-        "enable_charge_target": Def(C.bool, None, HR(20)),
+        "enable_charge_target": Def(C.bool, None, HR(20), valid=(0, 1)),
         "arm_firmware_version": Def(C.uint16, None, HR(21)),
         "generation": Def(C.uint16, Generation, HR(21)),
         "firmware_version": Def(C.firmware_version, None, HR(19), HR(21)),
@@ -152,7 +154,7 @@ class Inverter(RegisterGetter):
         "variable_address": Def(C.uint16, None, HR(24)),
         "variable_value": Def(C.uint16, None, HR(25)),
         "grid_port_max_power_output": Def(C.uint16, None, HR(26)),
-        "battery_power_mode": Def(C.uint16, BatteryPowerMode, HR(27)),
+        "battery_power_mode": Def(C.uint16, BatteryPowerMode, HR(27), valid=(0, 1)),
         "enable_60hz_freq_mode": Def(C.bool, None, HR(28)),
         "battery_calibration_stage": Def(C.uint16, BatteryCalibrationStage, HR(29)),
         "modbus_address": Def(C.uint16, None, HR(30)),
@@ -188,6 +190,8 @@ class Inverter(RegisterGetter):
         "start_countdown_timer": Def(C.uint16, None, HR(61)),
         "restart_delay_time": Def(C.uint16, None, HR(62)),
         # skip protection settings HR(63-93)
+        "charge_slot_1_start": Def(C.uint16, None, HR(94), valid=(0, 2359)),
+        "charge_slot_1_end": Def(C.uint16, None, HR(95), valid=(0, 2359)),
         "charge_slot_1": Def(C.timeslot, None, HR(94), HR(95)),
         "enable_charge": Def(C.bool, None, HR(96)),
         "battery_low_voltage_protection_limit": Def(C.uint16, C.centi, HR(97)),
@@ -196,14 +200,14 @@ class Inverter(RegisterGetter):
         "battery_low_force_charge_time": Def(C.uint16, None, HR(108)),
         "enable_bms_read": Def(C.bool, None, HR(109)),
         "battery_soc_reserve": Def(C.uint16, None, HR(110)),
-        "battery_charge_limit": Def(C.uint16, None, HR(111)),
-        "battery_discharge_limit": Def(C.uint16, None, HR(112)),
+        "battery_charge_limit": Def(C.uint16, None, HR(111), valid=(0, 50)),
+        "battery_discharge_limit": Def(C.uint16, None, HR(112), valid=(0, 50)),
         "enable_buzzer": Def(C.bool, None, HR(113)),
-        "battery_discharge_min_power_reserve": Def(C.uint16, None, HR(114)),
+        "battery_discharge_min_power_reserve": Def(
+            C.uint16, None, HR(114), valid=(4, 100)
+        ),
         # 'island_check_continue': Def(C.uint16, None, HR(115)),
-        "charge_target_soc": Def(
-            C.uint16, None, HR(116)
-        ),  # requires enable_charge_target
+        "charge_target_soc": Def(C.uint16, None, HR(116), valid=(4, 100)),
         "charge_soc_stop_2": Def(C.uint16, None, HR(117)),
         "discharge_soc_stop_2": Def(C.uint16, None, HR(118)),
         "charge_soc_stop_1": Def(C.uint16, None, HR(119)),
@@ -239,7 +243,7 @@ class Inverter(RegisterGetter):
         #
         # Holding Registers, block 300-359
         #
-        "battery_pause_mode": Def(C.uint16, BatteryPauseMode, HR(318)),
+        "battery_pause_mode": Def(C.uint16, BatteryPauseMode, HR(318), valid=(0, 3)),
         "battery_pause_slot_1": Def(C.timeslot, None, HR(319), HR(320)),
         #
         # Holding Registers, block 4080-4139
@@ -315,3 +319,26 @@ class Inverter(RegisterGetter):
     # def compute_e_pv_day(e_pv1_day: float, e_pv2_day: float, **kwargs) -> float:
     #     """Computes the discharge slot 2."""
     #     return e_pv1_day + e_pv2_day
+
+    @classmethod
+    def lookup_writable_register(cls, name: str, value: Optional[int] = None):
+        """
+        If the named register is writable and value is in range, return index.
+        """
+
+        regdef = cls.REGISTER_LUT[name]
+        if regdef.valid is None:
+            raise ValueError(f'{name} is not writable')
+        if len(regdef.registers) > 1:
+            raise NotImplementedError('wide register')
+
+        if value is not None:
+            if value < regdef.valid[0] or value > regdef.valid[1]:
+                raise ValueError(f'{value} out of range for {name}')
+
+            if regdef.valid[1] == 2359:
+                # As a special case, assume this register is a time
+                if value % 100 >= 60:
+                    raise ValueError(f'{value} is not a valid time')
+
+        return regdef.registers[0]._idx

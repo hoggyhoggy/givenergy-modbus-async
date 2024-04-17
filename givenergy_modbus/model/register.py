@@ -135,11 +135,15 @@ class RegisterDefinition:
     pre_conv: Union[Callable, tuple, None]
     post_conv: Union[Callable, tuple[Callable, Any], None]
     registers: tuple["Register"]
+    valid: Optional[tuple[int, int]]
 
-    def __init__(self, *args):
+    def __init__(self, *args, valid=None):
         self.pre_conv = args[0]
         self.post_conv = args[1]
         self.registers = args[2:]  # type: ignore[assignment]
+        self.valid = valid
+        # only single-register attributes are writable
+        assert valid is None or len(self.registers) == 1
 
     def __hash__(self):
         return hash(self.registers)
