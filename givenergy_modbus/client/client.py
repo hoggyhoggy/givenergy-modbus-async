@@ -75,21 +75,32 @@ class Client:
         self.connected = True
         _logger.info("Connection established to %s:%d", self.host, self.port)
 
-    async def close(self):
+    async def close(self) -> None:
         """Disconnect from the remote host and clean up tasks and queues."""
+        if not self.connected:
+            return
+
+        _logger.debug("Disconnecting and cleaning up")
+
         self.connected = False
+
         if self.tx_queue:
             while not self.tx_queue.empty():
                 _, future = self.tx_queue.get_nowait()
                 if future:
                     future.cancel()
-        self.network_producer_task.cancel()
+
+        if self.network_producer_task:
+            self.network_producer_task.cancel()
+
         if hasattr(self, "writer") and self.writer:
             self.writer.close()
             await self.writer.wait_closed()
             del self.writer
 
-        self.network_consumer_task.cancel()
+        if self.network_producer_task:
+            self.network_consumer_task.cancel()
+
         if hasattr(self, "reader") and self.reader:
             self.reader.feed_eof()
             self.reader.set_exception(RuntimeError("cancelling"))
@@ -107,12 +118,16 @@ class Client:
         max_batteries: int = 5,
         timeout: float = 1.0,
         retries: int = 0,
-    ):
+    ) -> Plant:
         """Refresh data about the Plant."""
         reqs = commands.refresh_plant_data(
             full_refresh, self.plant.number_batteries, max_batteries
         )
         await self.execute(reqs, timeout=timeout, retries=retries)
+
+        if full_refresh:
+            self.plant.detect_batteries()
+
         return self.plant
 
     async def watch_plant(
@@ -127,6 +142,7 @@ class Client:
         """Refresh data about the Plant."""
         await self.connect()
         await self.refresh_plant(True, max_batteries=max_batteries)
+        self.plant.detect_batteries()
         while True:
             if handler:
                 handler()
@@ -174,7 +190,8 @@ class Client:
                     else:
                         _logger.info("%s", message)
 
-                future = self.expected_responses.get(message.shape_hash(), None)
+                future = self.expected_responses.get(message.shape_hash())
+
                 if future and not future.done():
                     future.set_result(message)
                 # try:
@@ -182,7 +199,10 @@ class Client:
                 # except RegisterCacheUpdateFailed as e:
                 #     # await self.debug_frames['error'].put(frame)
                 #     _logger.debug(f'Ignoring {message}: {e}')
-        _logger.debug("network_consumer reader at EOF, cannot continue")
+        _logger.debug(
+            "network_consumer reader at EOF, cannot continue, closing connection"
+        )
+        await self.close()
 
     async def _task_network_producer(self, tx_message_wait: float = 0.25):
         """Producer loop to transmit queued frames with an appropriate delay."""
@@ -197,6 +217,7 @@ class Client:
         _logger.debug(
             "network_producer writer is closing, cannot continue, closing connection"
         )
+        await self.close()
 
     # async def _task_dump_queues_to_files(self):
     #     """Task to periodically dump debug message frames to disk for debugging."""
@@ -234,50 +255,59 @@ class Client:
         self, request: TransparentRequest, timeout: float, retries: int
     ) -> TransparentResponse:
         """Send a request to the remote, await and return the response."""
+        raw_frame = request.encode()
+
         # mark the expected response
         expected_response = request.expected_response()
         expected_shape_hash = expected_response.shape_hash()
-        existing_response_future = self.expected_responses.get(
-            expected_shape_hash, None
-        )
-        if existing_response_future and not existing_response_future.done():
-            _logger.debug(
-                "Cancelling existing in-flight request and replacing: %s", request
-            )
-            existing_response_future.cancel()
-        response_future: Future[TransparentResponse] = (
-            asyncio.get_event_loop().create_future()
-        )
-        self.expected_responses[expected_shape_hash] = response_future
-
-        raw_frame = request.encode()
 
         tries = 0
         while tries <= retries:
+            tries += 1
+            existing_response_future = self.expected_responses.get(expected_shape_hash)
+            if existing_response_future and not existing_response_future.done():
+                _logger.debug(
+                    "Cancelling existing in-flight request and replacing: %s", request
+                )
+                existing_response_future.cancel()
+            response_future: Future[
+                TransparentResponse
+            ] = asyncio.get_event_loop().create_future()
+            self.expected_responses[expected_shape_hash] = response_future
+
             frame_sent = asyncio.get_event_loop().create_future()
             await self.tx_queue.put((raw_frame, frame_sent))
             await asyncio.wait_for(
                 frame_sent, timeout=self.tx_queue.qsize() + 1
             )  # this should only happen if the producer task is stuck
-            await asyncio.wait_for(response_future, timeout=timeout)
-            if response_future.done():
-                response = response_future.result()
-                if tries > 0:
-                    _logger.debug("Received %s after %d attempts", response, tries)
-                if response.error:
-                    _logger.error("Received error response, retrying: %s", response)
-                else:
-                    return response
-            tries += 1
-            _logger.debug(
-                "Timeout awaiting %s attempting retry %d of %d",
-                expected_response,
-                tries,
-                retries,
-            )
+
+            _logger.debug("Request sent (attempt %d): %s", tries, request)
+
+            try:
+                await asyncio.wait_for(response_future, timeout=timeout)
+                if response_future.done():
+                    response = response_future.result()
+                    if tries > 1:
+                        _logger.debug("Received %s after %d attempts", response, tries)
+                    if response.error:
+                        _logger.error("Received error response, retrying: %s", response)
+                    else:
+                        return response
+            except asyncio.TimeoutError:
+                pass
+
+            if tries <= retries:
+                _logger.debug(
+                    "Timeout awaiting %s, attempting retry %d of %d",
+                    expected_response,
+                    tries,
+                    retries,
+                )
 
         _logger.warning(
             "Timeout awaiting %s after %d tries at %ds, giving up",
-            expected_response, tries, timeout
+            expected_response,
+            tries,
+            timeout,
         )
         raise asyncio.TimeoutError()
