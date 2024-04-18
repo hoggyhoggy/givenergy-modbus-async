@@ -6,16 +6,16 @@ from functools import wraps
 from urllib.request import urlopen
 
 ##begin added
-from givenergy_modbus.client.commands import *
+from givenergy_modbus_async.client.commands import *
 from datetime import datetime
 ##end added
 
-from givenergy_modbus.client.client import Client
-#from givenergy_modbus.client import Timeslot, commands
-from givenergy_modbus.client import commands
+from givenergy_modbus_async.client.client import Client
+#from givenergy_modbus_async.client import Timeslot, commands
+from givenergy_modbus_async.client import commands
 
 import typer
-from givenergy_modbus.pdu import ReadHoldingRegistersRequest
+from givenergy_modbus_async.pdu import ReadHoldingRegistersRequest
 from rich.columns import Columns
 from rich.console import Console
 from rich.live import Live
@@ -460,7 +460,7 @@ def responder(command,host,port,val):
     console.print(table)
 
 
-asyncio.run(test('192.168.2.3',8899))
+asyncio.run(watch_plant2('192.168.2.3',8899))
 
 #if __name__ == "__main__":
 #    main()

@@ -4,9 +4,9 @@ from typing import Any, Optional, Union
 
 import pytest
 
-from givenergy_modbus.exceptions import ExceptionBase
-from givenergy_modbus.framer import ClientFramer, Framer, ServerFramer
-from givenergy_modbus.pdu import (
+from givenergy_modbus_async.exceptions import ExceptionBase
+from givenergy_modbus_async.framer import ClientFramer, Framer, ServerFramer
+from givenergy_modbus_async.pdu import (
     BasePDU,
     HeartbeatRequest,
     NullResponse,

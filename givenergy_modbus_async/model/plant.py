@@ -1,14 +1,14 @@
 import logging
 from typing import Any
 
-from givenergy_modbus.model import GivEnergyBaseModel
-from givenergy_modbus.model.battery import Battery
-from givenergy_modbus.model.inverter import Inverter, Model, Generation
-from givenergy_modbus.model.register import HR, IR
-from givenergy_modbus.model.register_cache import (
+from givenergy_modbus_async.model import GivEnergyBaseModel
+from givenergy_modbus_async.model.battery import Battery
+from givenergy_modbus_async.model.inverter import Inverter, Model, Generation
+from givenergy_modbus_async.model.register import HR, IR
+from givenergy_modbus_async.model.register_cache import (
     RegisterCache,
 )
-from givenergy_modbus.pdu import (
+from givenergy_modbus_async.pdu import (
     ClientIncomingMessage,
     NullResponse,
     ReadHoldingRegistersResponse,
@@ -28,7 +28,7 @@ class Plant(GivEnergyBaseModel):
     inverter_serial_number: str = ""
     data_adapter_serial_number: str = ""
     number_batteries: int = 0
-    slave_address: int = 0x31
+    slave_address: int = 0x32
 
     class Config:  # noqa: D106
         allow_mutation = True

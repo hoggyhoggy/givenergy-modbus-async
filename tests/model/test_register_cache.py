@@ -1,8 +1,8 @@
 import datetime
 
-from givenergy_modbus.model import TimeSlot
-from givenergy_modbus.model.register import HR, IR
-from givenergy_modbus.model.register_cache import RegisterCache
+from givenergy_modbus_async.model import TimeSlot
+from givenergy_modbus_async.model.register import HR, IR
+from givenergy_modbus_async.model.register_cache import RegisterCache
 from tests.model.test_register import HOLDING_REGISTERS, INPUT_REGISTERS
 
 

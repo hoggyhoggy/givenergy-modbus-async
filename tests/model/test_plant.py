@@ -4,11 +4,11 @@ from typing import Any, Optional
 
 import pytest
 
-from givenergy_modbus.exceptions import ExceptionBase
-from givenergy_modbus.model import TimeSlot
-from givenergy_modbus.model.battery import Battery
-from givenergy_modbus.model.battery import UsbDevice as BatteryUsbDevice
-from givenergy_modbus.model.inverter import (
+from givenergy_modbus_async.exceptions import ExceptionBase
+from givenergy_modbus_async.model import TimeSlot
+from givenergy_modbus_async.model.battery import Battery
+from givenergy_modbus_async.model.battery import UsbDevice as BatteryUsbDevice
+from givenergy_modbus_async.model.inverter import (
     BatteryCalibrationStage,
     BatteryPowerMode,
     BatteryType,
@@ -18,11 +18,11 @@ from givenergy_modbus.model.inverter import (
     PowerFactorFunctionModel,
     Status,
 )
-from givenergy_modbus.model.inverter import UsbDevice as InverterUsbDevice
-from givenergy_modbus.model.plant import Plant
-from givenergy_modbus.model.register import HR, IR, Register
-from givenergy_modbus.model.register_cache import RegisterCache
-from givenergy_modbus.pdu import (
+from givenergy_modbus_async.model.inverter import UsbDevice as InverterUsbDevice
+from givenergy_modbus_async.model.plant import Plant
+from givenergy_modbus_async.model.register import HR, IR, Register
+from givenergy_modbus_async.model.register_cache import RegisterCache
+from givenergy_modbus_async.pdu import (
     ClientIncomingMessage,
     HeartbeatRequest,
     NullResponse,

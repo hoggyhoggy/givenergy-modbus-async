@@ -6,7 +6,7 @@ from typing import Any, Callable, Optional, Union
 
 from pydantic.utils import GetterDict
 
-from givenergy_modbus.model import TimeSlot
+from givenergy_modbus_async.model import TimeSlot
 
 
 class Converter:

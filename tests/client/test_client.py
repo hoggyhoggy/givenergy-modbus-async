@@ -4,9 +4,9 @@ from asyncio import StreamReader
 
 import pytest
 
-from givenergy_modbus.client.client import Client
-from givenergy_modbus.model import TimeSlot
-from givenergy_modbus.pdu.write_registers import WriteHoldingRegisterRequest, WriteHoldingRegisterResponse
+from givenergy_modbus_async.client.client import Client
+from givenergy_modbus_async.model import TimeSlot
+from givenergy_modbus_async.pdu.write_registers import WriteHoldingRegisterRequest, WriteHoldingRegisterResponse
 
 
 async def test_expected_response():

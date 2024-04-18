@@ -4,17 +4,17 @@ import socket
 from asyncio import Future, Queue, StreamReader, StreamWriter, Task
 from typing import Callable, Dict, List, Optional, Tuple
 
-from givenergy_modbus.client import commands
-from givenergy_modbus.exceptions import (
+from givenergy_modbus_async.client import commands
+from givenergy_modbus_async.exceptions import (
     CommunicationError,
     ExceptionBase,
 )
-from givenergy_modbus.framer import (
+from givenergy_modbus_async.framer import (
     ClientFramer,
     Framer,
 )
-from givenergy_modbus.model.plant import Plant
-from givenergy_modbus.pdu import (
+from givenergy_modbus_async.model.plant import Plant
+from givenergy_modbus_async.pdu import (
     HeartbeatRequest,
     TransparentRequest,
     TransparentResponse,
@@ -78,7 +78,7 @@ class Client:
     async def detect_plant(self, timeout: int = 1, retries: int = 3) -> None:
         """Detect inverter capabilities that influence how subsequent requests are made."""
         _logger.info("Detecting plant")
-        from givenergy_modbus.model.inverter import Model
+        from givenergy_modbus_async.model.inverter import Model
         # Refresh the core set of registers that work across all inverters
         #await self.refresh_plant(True, timeout=timeout, retries=retries)
         

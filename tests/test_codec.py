@@ -2,7 +2,7 @@ import struct
 
 import pytest
 
-from givenergy_modbus.codec import PayloadDecoder, PayloadEncoder
+from givenergy_modbus_async.codec import PayloadDecoder, PayloadEncoder
 
 
 def test_decoder_uints():
