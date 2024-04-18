@@ -1,9 +1,13 @@
 from dataclasses import dataclass
 from datetime import datetime
 from json import JSONEncoder
+import math
 from typing import Any, Callable, Optional, Union
 
 from pydantic.utils import GetterDict
+from givenergy_modbus.exceptions import (
+    ConversionError,
+)
 
 from givenergy_modbus.model import TimeSlot
 
@@ -16,6 +20,14 @@ class Converter:
         """Simply return the raw unsigned 16-bit integer register value."""
         if val is not None:
             return int(val)
+
+    @staticmethod
+    def int16(val: int) -> int:
+        """Interpret as a 16-bit integer register value."""
+        if val is not None:
+            if val & (1 << (16 - 1)):
+                val -= 1 << 16
+            return val
 
     @staticmethod
     def duint8(val: int, *idx: int) -> int:
@@ -67,6 +79,23 @@ class Converter:
         """Represent ARM & DSP firmware versions in the same format as the dashboard."""
         if dsp_version is not None and arm_version is not None:
             return f"D0.{dsp_version}-A0.{arm_version}"
+
+    @staticmethod
+    def inverter_max_power(device_type_code: str) -> Optional[int]:
+        """Determine max inverter power from device_type_code."""
+        dtc_to_power = {
+            "2001": 5000,
+            "2002": 4600,
+            "2003": 3600,
+            "3001": 3000,
+            "3002": 3600,
+            "4001": 6000,
+            "4002": 8000,
+            "4003": 10000,
+            "4004": 11000,
+            "8001": 6000,
+        }
+        return dtc_to_power.get(device_type_code)
 
     @staticmethod
     def hex(val: int, width: int = 4) -> str:
@@ -134,21 +163,26 @@ class RegisterGetter(GetterDict):
         if None in regs:
             return None
 
-        if r.pre_conv:
-            if isinstance(r.pre_conv, tuple):
-                args = regs + list(r.pre_conv[1:])
-                val = r.pre_conv[0](*args)
+        try:
+            if r.pre_conv:
+                if isinstance(r.pre_conv, tuple):
+                    args = regs + list(r.pre_conv[1:])
+                    val = r.pre_conv[0](*args)
+                else:
+                    val = r.pre_conv(*regs)
             else:
-                val = r.pre_conv(*regs)
-        else:
-            val = regs
+                val = regs
 
-        if r.post_conv:
-            if isinstance(r.post_conv, tuple):
-                return r.post_conv[0](val, *r.post_conv[1:])
-            else:
-                return r.post_conv(val)
-        return val
+            if r.post_conv:
+                if isinstance(r.post_conv, tuple):
+                    return r.post_conv[0](val, *r.post_conv[1:])
+                else:
+                    if not isinstance(r.post_conv, Callable):
+                        pass
+                    return r.post_conv(val)
+            return val
+        except ValueError as err:
+            raise ConversionError(key, regs, str(err)) from err
 
     @classmethod
     def to_fields(cls) -> dict[str, tuple[Any, None]]:

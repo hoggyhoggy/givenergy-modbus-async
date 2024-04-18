@@ -1,4 +1,5 @@
 from enum import IntEnum, StrEnum
+import math
 
 from pydantic import BaseConfig, create_model
 
@@ -26,9 +27,31 @@ class Model(StrEnum):
     ALL_IN_ONE = "8"
 
     @classmethod
-    def _missing_(cls, key):
+    def _missing_(cls, value):
         """Pick model from the first digit of the device type code."""
-        return cls(key[0])
+        return cls(value[0])
+
+
+class Generation(StrEnum):
+    """Known Generations"""
+
+    GEN1 = "Gen 1"
+    GEN2 = "Gen 2"
+    GEN3 = "Gen 3"
+
+    @classmethod
+    def _missing_(cls, value: int):
+        """Pick generation from the arm_firmware_version."""
+        arm_firmware_version_to_gen = {
+            3: cls.GEN3,
+            8: cls.GEN2,
+            9: cls.GEN2,
+        }
+        key = math.floor(int(value) / 100)
+        if gen := arm_firmware_version_to_gen.get(key):
+            return gen
+        else:
+            return cls.GEN1
 
 
 class UsbDevice(IntEnum):
@@ -103,6 +126,7 @@ class InverterRegisterGetter(RegisterGetter):
         # Holding Registers, block 0-59
         #
         "device_type_code": Def(C.hex, None, HR(0)),
+        "inverter_max_power": Def(C.hex, C.inverter_max_power, HR(0)),
         "model": Def(C.hex, Model, HR(0)),
         "module": Def(C.uint32, (C.hex, 8), HR(1), HR(2)),
         "num_mppt": Def((C.duint8, 0), None, HR(3)),
@@ -117,6 +141,7 @@ class InverterRegisterGetter(RegisterGetter):
         "dsp_firmware_version": Def(C.uint16, None, HR(19)),
         "enable_charge_target": Def(C.bool, None, HR(20)),
         "arm_firmware_version": Def(C.uint16, None, HR(21)),
+        "generation": Def(C.uint16, Generation, HR(21)),
         "firmware_version": Def(C.firmware_version, None, HR(19), HR(21)),
         "usb_device_inserted": Def(C.uint16, UsbDevice, HR(22)),
         "select_arm_chip": Def(C.bool, None, HR(23)),
@@ -223,6 +248,53 @@ class InverterRegisterGetter(RegisterGetter):
         # Input Registers, block 0-59
         #
         "status": Def(C.uint16, Status, IR(0)),
+        "v_pv1": Def(C.deci, None, IR(1)),
+        "v_pv2": Def(C.deci, None, IR(2)),
+        "v_p_bus": Def(C.deci, None, IR(3)),
+        "v_n_bus": Def(C.deci, None, IR(4)),
+        "v_ac1": Def(C.deci, None, IR(5)),
+        "e_battery_throughput_total": Def(C.uint32, C.deci, IR(6), IR(7)),
+        "i_pv1": Def(C.centi, None, IR(8)),
+        "i_pv2": Def(C.centi, None, IR(9)),
+        "i_ac1": Def(C.centi, None, IR(10)),
+        "e_pv_total": Def(C.uint32, C.deci, IR(11), IR(12)),
+        "f_ac1": Def(C.centi, None, IR(13)),
+        "e_pv1_day": Def(C.deci, None, IR(17)),
+        "p_pv1": Def(C.uint16, None, IR(18)),
+        "e_pv2_day": Def(C.deci, None, IR(19)),
+        "p_pv2": Def(C.uint16, None, IR(20)),
+        "e_grid_out_total": Def(C.uint32, C.deci, IR(21), IR(22)),
+        "e_solar_diverter": Def(C.deci, None, IR(23)),
+        "p_inverter_out": Def(C.int16, None, IR(24)),
+        "e_grid_out_day": Def(C.deci, None, IR(25)),
+        "e_grid_in_day": Def(C.deci, None, IR(26)),
+        "e_inverter_in_total": Def(C.uint32, C.deci, IR(27), IR(28)),
+        "e_discharge_year": Def(C.deci, None, IR(29)),
+        "p_grid_out": Def(C.int16, None, IR(30)),
+        "p_eps_backup": Def(C.uint16, None, IR(31)),
+        "e_grid_in_total": Def(C.uint32, C.deci, IR(32), IR(33)),
+        "e_inverter_in_day": Def(C.deci, None, IR(35)),
+        "e_battery_charge_day": Def(C.deci, None, IR(36)),
+        "e_battery_discharge_day": Def(C.deci, None, IR(37)),
+        "inverter_countdown": Def(C.uint16, None, IR(38)),
+        # FAULT_CODE_H = (39, {'type': T_BITFIELD})
+        # FAULT_CODE_L = (40, {'type': T_BITFIELD})
+        "temp_inverter_heatsink": Def(C.deci, None, IR(41)),
+        "p_load_demand": Def(C.uint16, None, IR(42)),
+        "p_grid_apparent": Def(C.uint16, None, IR(43)),
+        "e_inverter_out_day": Def(C.deci, None, IR(44)),
+        "e_inverter_out_total": Def(C.uint32, C.deci, IR(45), IR(46)),
+        "work_time_total": Def(C.uint32, None, IR(47), IR(48)),
+        "system_mode": Def(C.uint16, None, IR(49)),
+        "v_battery": Def(C.centi, None, IR(50)),
+        "i_battery": Def(C.int16, C.centi, None, IR(51)),
+        "p_battery": Def(C.int16, None, IR(52)),
+        "v_eps_backup": Def(C.deci, None, IR(53)),
+        "f_eps_backup": Def(C.centi, None, IR(54)),
+        "temp_charger": Def(C.deci, None, IR(55)),
+        "temp_battery": Def(C.deci, None, IR(56)),
+        "i_grid_port": Def(C.centi, None, IR(58)),
+        "battery_percent": Def(C.uint16, None, IR(59)),
     }
 
     # @computed('p_pv')
