@@ -73,7 +73,7 @@ class Client:
         )
         # asyncio.create_task(self._task_dump_queues_to_files(), name='dump_queues_to_files'),
         self.connected = True
-        _logger.info(f"Connection established to {self.host}:{self.port}")
+        _logger.info("Connection established to %s:%d", self.host, self.port)
 
     async def close(self):
         """Disconnect from the remote host and clean up tasks and queues."""
@@ -150,10 +150,11 @@ class Client:
             frame = await self.reader.read(300)
             # await self.debug_frames['all'].put(frame)
             async for message in self.framer.decode(frame):
-                _logger.debug(f"Processing {message}")
+                _logger.debug("Processing %s", message)
                 if isinstance(message, ExceptionBase):
                     _logger.warning(
-                        f"Expected response never arrived but resulted in exception: {message}"
+                        "Expected response never arrived but resulted in exception: %s",
+                        message,
                     )
                     continue
                 if isinstance(message, HeartbeatRequest):
@@ -164,14 +165,14 @@ class Client:
                     continue
                 if not isinstance(message, TransparentResponse):
                     _logger.warning(
-                        f"Received unexpected message type for a client: {message}"
+                        "Received unexpected message type for a client: %s", message
                     )
                     continue
                 if isinstance(message, WriteHoldingRegisterResponse):
                     if message.error:
-                        _logger.warning(f"{message}")
+                        _logger.warning("%s", message)
                     else:
-                        _logger.info(f"{message}")
+                        _logger.info("%s", message)
 
                 future = self.expected_responses.get(message.shape_hash(), None)
                 if future and not future.done():
@@ -181,7 +182,7 @@ class Client:
                 # except RegisterCacheUpdateFailed as e:
                 #     # await self.debug_frames['error'].put(frame)
                 #     _logger.debug(f'Ignoring {message}: {e}')
-        _logger.critical("network_consumer reader at EOF, cannot continue")
+        _logger.debug("network_consumer reader at EOF, cannot continue")
 
     async def _task_network_producer(self, tx_message_wait: float = 0.25):
         """Producer loop to transmit queued frames with an appropriate delay."""
@@ -193,7 +194,9 @@ class Client:
             if future:
                 future.set_result(True)
             await asyncio.sleep(tx_message_wait)
-        _logger.critical("network_producer writer is closing, cannot continue")
+        _logger.debug(
+            "network_producer writer is closing, cannot continue, closing connection"
+        )
 
     # async def _task_dump_queues_to_files(self):
     #     """Task to periodically dump debug message frames to disk for debugging."""
@@ -239,7 +242,7 @@ class Client:
         )
         if existing_response_future and not existing_response_future.done():
             _logger.debug(
-                f"Cancelling existing in-flight request and replacing: {request}"
+                "Cancelling existing in-flight request and replacing: %s", request
             )
             existing_response_future.cancel()
         response_future: Future[TransparentResponse] = (
@@ -260,18 +263,21 @@ class Client:
             if response_future.done():
                 response = response_future.result()
                 if tries > 0:
-                    _logger.debug(f"Received {response} after {tries} tries")
+                    _logger.debug("Received %s after %d attempts", response, tries)
                 if response.error:
-                    _logger.error(f"Received error response, retrying: {response}")
+                    _logger.error("Received error response, retrying: %s", response)
                 else:
                     return response
             tries += 1
             _logger.debug(
-                f"Timeout awaiting {expected_response} (future: {response_future}), "
-                f"attempting retry {tries} of {retries}"
+                "Timeout awaiting %s attempting retry %d of %d",
+                expected_response,
+                tries,
+                retries,
             )
 
         _logger.warning(
-            f"Timeout awaiting {expected_response} after {tries} tries at {timeout}s, giving up"
+            "Timeout awaiting %s after %d tries at %ds, giving up",
+            expected_response, tries, timeout
         )
         raise asyncio.TimeoutError()
