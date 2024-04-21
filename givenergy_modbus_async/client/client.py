@@ -93,13 +93,16 @@ class Client:
         _logger.info("Batteries detected: %d", self.plant.number_batteries)
 
         #set isAIO as needed
-        if self.plant.inverter.model == Model.ALL_IN_ONE:   # Check what other devices need 0x11
+############ Check what other devices need 0x11
+        if self.plant.inverter.model == Model.ALL_IN_ONE:   
             self.plant.slave_address = 0x11
         else:
             self.plant.slave_address = 0x32
 
         # Some devices support additional registers
         # When unsupported, devices appear to simple ignore requests
+        
+############ What register sets should we look for????
         possible_additional_holding_registers = [180, 240, 300, 360]
         for hr in possible_additional_holding_registers:
             try:

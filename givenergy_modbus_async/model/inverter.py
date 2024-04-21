@@ -157,7 +157,7 @@ class InverterRegisterGetter(RegisterGetter):
         "grid_port_max_power_output": Def(C.uint16, None, HR(26)),
         "battery_power_mode": Def(C.uint16, BatteryPowerMode, HR(27)),
         "enable_60hz_freq_mode": Def(C.bool, None, HR(28)),
-        "battery_calibration_stage": Def(C.uint16, BatteryCalibrationStage, HR(29)),
+        "soc_force_adjust": Def(C.uint16, BatteryCalibrationStage, HR(29)),
         "modbus_address": Def(C.uint16, None, HR(30)),
         "charge_slot_2": Def(C.timeslot, None, HR(31), HR(32)),
         "user_code": Def(C.uint16, None, HR(33)),
@@ -178,7 +178,7 @@ class InverterRegisterGetter(RegisterGetter):
         "enable_inverter_auto_restart": Def((C.duint8, 0), C.bool, HR(53)),
         "enable_inverter": Def((C.duint8, 1), C.bool, HR(53)),
         "battery_type": Def(C.uint16, BatteryType, HR(54)),
-        "battery_capacity": Def(C.uint16, None, HR(55)),
+        "battery_nominal_capacity": Def(C.uint16, None, HR(55)),
         "discharge_slot_1": Def(C.timeslot, None, HR(56), HR(57)),
         "enable_auto_judge_battery_type": Def(C.bool, None, HR(58)),
         "enable_discharge": Def(C.bool, None, HR(59)),
@@ -238,9 +238,9 @@ class InverterRegisterGetter(RegisterGetter):
         #
         # Holding Registers, block 180-239
         #
-
         "enable_standard_self_consumption_logic": Def(C.bool, None, HR(199)),
         "cmd_bms_flash_update": Def(C.bool, None, HR(200)),
+        # 202-239 - Gen 2 only
         "charge_target_soc_1": Def(C.uint16, None, HR(242)),
         "charge_slot_2": Def(C.timeslot, None, HR(243), HR(244)),
         "charge_target_soc_2": Def(C.uint16, None, HR(245)),
@@ -279,10 +279,21 @@ class InverterRegisterGetter(RegisterGetter):
         "discharge_slot_10": Def(C.timeslot, None, HR(297), HR(298)),
         "discharge_target_soc_10": Def(C.uint16, None, HR(299)),
         #
-        # Holding Registers, block 300-359
+        # Holding Registers, block 300-479
+        # Single Phase New registers
         #
+        "battery_charge_limit_ac": Def(C.uint16, None, HR(313)),
+        "battery_discharge_limit_ac": Def(C.uint16, None, HR(314)),
         "battery_pause_mode": Def(C.uint16, BatteryPauseMode, HR(318)),
         "battery_pause_slot_1": Def(C.timeslot, None, HR(319), HR(320)),
+        #
+        # Holding Registers, block 480-539
+        # EMS AC3 only
+        #
+        #
+        # Holding Registers, block 1000-1124
+        # Three phase Hybrid
+        #
         #
         # Holding Registers, block 4080-4139
         #
@@ -353,6 +364,14 @@ class InverterRegisterGetter(RegisterGetter):
         "e_battery_charge_total2": Def(C.deci, None, IR(181)),
         "e_battery_discharge_today2": Def(C.deci, None, IR(182)),
         "e_battery_charge_today2": Def(C.deci, None, IR(183)),
+        #
+        # Input Registers, block 1000-1119
+        # Three phase Hybrid
+        #
+        #
+        # Input Registers, block 1600-1631
+        # Gateway
+        #
     }
 
     # @computed('p_pv')

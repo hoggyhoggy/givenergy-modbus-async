@@ -101,6 +101,8 @@ class RegisterMap:
     DISCHARGE_SLOT_10_START = 297
     DISCHARGE_SLOT_10_END = 298
     DISCHARGE_TARGET_SOC_10 = 299
+    BATTERY_CHARGE_LIMIT_AC = 313
+    BATTERY_DISCHARGE_LIMIT_AC = 314
     BATTERY_PAUSE_MODE = 318
     BATTERY_PAUSE_SLOT_START = 319
     BATTERY_PAUSE_SLOT_END = 320
@@ -207,6 +209,7 @@ def set_soc_target(discharge: bool, idx: int, target_soc: int) -> list[Transpare
     reg = (getattr(RegisterMap, f'{"DIS" if discharge else ""}CHARGE_TARGET_SOC_{idx}'))
     return [WriteHoldingRegisterRequest(reg, target_soc)]
 
+
 def set_charge_target_only(target_soc: int) -> list[TransparentRequest]:
     """Sets inverter to stop charging when SOC reaches the desired level on AC Charge."""
     target_soc = int(target_soc)
@@ -301,6 +304,20 @@ def set_battery_discharge_limit(val: int) -> list[TransparentRequest]:
         raise ValueError(f"Specified Discharge Limit ({val}%) is not in [0-50]%")
     return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_DISCHARGE_LIMIT, val)]
 
+def set_battery_charge_limit_ac(val: int) -> list[TransparentRequest]:
+    """Set the battery AC charge power limit as percentage."""
+    val = int(val)
+    if not 0 <= val <= 100:
+        raise ValueError(f"Specified Charge Limit ({val}%) is not in [0-100]%")
+    return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_CHARGE_LIMIT_AC, val)]
+
+
+def set_battery_discharge_limit_ac(val: int) -> list[TransparentRequest]:
+    """Set the battery AC discharge power limit as percentage."""
+    val = int(val)
+    if not 0 <= val <= 100:
+        raise ValueError(f"Specified Discharge Limit ({val}%) is not in [0-100]%")
+    return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_DISCHARGE_LIMIT_AC, val)]
 
 def set_battery_power_reserve(val: int) -> list[TransparentRequest]:
     """Set the battery power reserve to maintain."""
@@ -355,6 +372,15 @@ def set_charge_slot_end(
         getattr(RegisterMap, f'{"DIS" if discharge else ""}CHARGE_SLOT_{idx}_END')
     )
     return [WriteHoldingRegisterRequest(hr_end, int(endtime.strftime("%H%M")))]
+
+def set_pause_slot(
+    slot: TimeSlot
+) -> list[TransparentRequest]:
+        return [
+            WriteHoldingRegisterRequest(RegisterMap.BATTERY_PAUSE_SLOT_START, int(slot.start.strftime("%H%M"))),
+            WriteHoldingRegisterRequest(RegisterMap.BATTERY_PAUSE_SLOT_START, int(slot.end.strftime("%H%M"))),
+        ]
+
 
 def set_pause_slot_end(
     idx: int, endtime: datetime
