@@ -182,6 +182,7 @@ class Client:
     ):
         """Refresh data about the Plant."""
         await self.connect()
+        await self.detect_plant()
         await self.refresh_plant(True, number_batteries=num_batteries)
         while True:
             if handler:
