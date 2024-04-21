@@ -185,7 +185,7 @@ class Client:
         await self.refresh_plant(True, number_batteries=num_batteries)
         while True:
             if handler:
-                handler()
+                handler(self.plant)
             await asyncio.sleep(refresh_period)
             if not passive:
                 reqs = commands.refresh_plant_data(False, self.plant.number_batteries)
