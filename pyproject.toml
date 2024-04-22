@@ -75,6 +75,9 @@ mkdocs-material-extensions = "^1.1.1"
 mkdocstrings = {extras = ["python"], version = "^0.20.0"}
 pytkdocs = "^0.16.1"
 
+[tool.poetry.scripts]
+givenergy-modbus = 'givenergy_modbus.cli:main'
+
 [tool.black]
 line-length = 120
 skip-string-normalization = true
