@@ -1,4 +1,5 @@
 """Data model."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,27 +7,10 @@ from datetime import time
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
-
 if TYPE_CHECKING:
     from givenergy_modbus.model.register_cache import (
         RegisterCache,
     )
-
-
-class GivEnergyBaseModel(BaseModel):
-    """Structured format for all other attributes."""
-
-    class Config:  # noqa: D106
-        allow_mutation = False
-        frozen = True
-        use_enum_values = True
-        orm_mode = True
-
-    @classmethod
-    def from_registers(cls, register_cache: RegisterCache):
-        """Constructor parsing registers directly."""
-        raise NotImplementedError()
 
 
 class DefaultUnknownIntEnum(IntEnum):
@@ -63,11 +47,3 @@ class TimeSlot:
         end_hour = int(end[:-2])
         end_minute = int(end[-2:])
         return cls(time(start_hour, start_minute), time(end_hour, end_minute))
-
-
-# from givenergy_modbus.model import battery, inverter, plant, register_cache
-#
-# Plant = plant.Plant
-# Inverter = inverter.Inverter
-# Battery = battery.Battery
-# RegisterCache = register_cache.RegisterCache
