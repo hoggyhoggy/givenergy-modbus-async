@@ -4,7 +4,6 @@ from json import JSONEncoder
 import math
 from typing import Any, Callable, Optional, Union
 
-from pydantic.utils import GetterDict
 from givenergy_modbus.exceptions import (
     ConversionError,
 )
@@ -137,7 +136,7 @@ class RegisterDefinition:
     post_conv: Union[Callable, tuple[Callable, Any], None]
     registers: tuple["Register"]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args):
         self.pre_conv = args[0]
         self.post_conv = args[1]
         self.registers = args[2:]  # type: ignore[assignment]
@@ -146,19 +145,27 @@ class RegisterDefinition:
         return hash(self.registers)
 
 
-class RegisterGetter(GetterDict):
+class RegisterGetter:
     """Specifies how device attributes are derived from raw register values."""
 
+    # defined by subclass
     REGISTER_LUT: dict[str, RegisterDefinition]
 
-    def get(self, key: str, default: Any = None) -> Any:
-        """Return a named register's value, after pre- and post-conversion."""
-        try:
-            r = self.REGISTER_LUT[key]
-        except KeyError:
-            return default
+    # TODO: cache is actually a RegisterCache, but importing that gives a circular dependency
+    def __init__(self, cache: Any):
+        self.cache = cache  # RegisterCache
 
-        regs = [self._obj.get(r) for r in r.registers]
+    # this implements the magic of providing attributes based
+    # on the register lut
+    def __getattr__(self, name: str):
+        return self.get(name)
+
+    # or you can just use inverter.get('name')
+    def get(self, key: str) -> Any:
+        """Return a named register's value, after pre- and post-conversion."""
+        r = self.REGISTER_LUT[key]
+
+        regs = [self.cache.get(r) for r in r.registers]
 
         if None in regs:
             return None
@@ -183,36 +190,6 @@ class RegisterGetter(GetterDict):
             return val
         except ValueError as err:
             raise ConversionError(key, regs, str(err)) from err
-
-    @classmethod
-    def to_fields(cls) -> dict[str, tuple[Any, None]]:
-        """Determine a pydantic fields definition for the class."""
-
-        def infer_return_type(obj: Any):
-            if hasattr(obj, "__annotations__") and (
-                ret := obj.__annotations__.get("return", None)
-            ):
-                return ret
-            return obj  # assume it is a class/type already?
-
-        def return_type(v: RegisterDefinition):
-            if v.post_conv:
-                if isinstance(v.post_conv, tuple):
-                    return infer_return_type(v.post_conv[0])
-                else:
-                    return infer_return_type(v.post_conv)
-            elif v.pre_conv:
-                if isinstance(v.pre_conv, tuple):
-                    return infer_return_type(v.pre_conv[0])
-                else:
-                    return infer_return_type(v.pre_conv)
-            return Any
-
-        register_fields = {
-            k: (return_type(v), None) for k, v in cls.REGISTER_LUT.items()
-        }
-
-        return register_fields
 
 
 class RegisterEncoder(JSONEncoder):
