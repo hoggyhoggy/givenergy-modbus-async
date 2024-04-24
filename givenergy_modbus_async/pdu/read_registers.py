@@ -1,5 +1,6 @@
 import logging
 from abc import ABC
+from crccheck.crc import CrcModbus
 
 from givenergy_modbus_async.codec import (
     PayloadDecoder,

@@ -126,7 +126,8 @@ def refresh_additional_holding_registers(
 def refresh_plant_data(
     complete: bool,
     number_batteries: int = 0,
-    slave_addr: int = 0x32,
+    slave_addr: int = 0x31,
+    isHV: bool = False,
     additional_holding_registers: Optional[list[int]] = None,
 ) -> list[TransparentRequest]:
     """Refresh plant data."""
@@ -165,12 +166,28 @@ def refresh_plant_data(
             for hr in additional_holding_registers:
                 requests.extend(refresh_additional_holding_registers(hr, slave_addr))
 
-    for i in range(number_batteries):
+    if isHV:    #Get Battery data from AIO/HV systems
+        # BCU
         requests.append(
-            ReadInputRegistersRequest(
-                base_register=60, register_count=60, slave_address=0x32 + i
+                ReadInputRegistersRequest(
+                    base_register=60, register_count=60, slave_address=0x70
+                )
             )
-        )
+        # BMU
+        for i in range(number_batteries):
+            requests.append(
+                ReadInputRegistersRequest(
+                    base_register=60, register_count=60, slave_address=0x50 + i
+                )
+            )
+    else:
+        #LV Batteries
+        for i in range(number_batteries):
+            requests.append(
+                ReadInputRegistersRequest(
+                    base_register=60, register_count=60, slave_address=0x32 + i
+                )
+            )
     return requests
 
 

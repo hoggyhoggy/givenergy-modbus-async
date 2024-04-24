@@ -1,8 +1,10 @@
 import asyncio
 import logging
 import socket
+import sys
 from asyncio import Future, Queue, StreamReader, StreamWriter, Task
 from typing import Callable, Dict, List, Optional, Tuple
+from datetime import datetime
 
 from givenergy_modbus_async.client import commands
 from givenergy_modbus_async.exceptions import (
@@ -84,20 +86,23 @@ class Client:
         
         #Force 0x11 slave address only during detect
         self.plant.slave_address=0x11
-        
-        await self.refresh_plant(True, number_batteries=5, retries=3, timeout=1.0)
-        #print("Plant Detected")
+        self.plant.isHV = False
 
-        # Use that to detect the number of batteries
-        self.plant.detect_batteries()
-        _logger.info("Batteries detected: %d", self.plant.number_batteries)
+        await self.refresh_plant(True, number_batteries=0, retries=3, timeout=2.0)
 
-        #set isAIO as needed
-############ Check what other devices need 0x11
+        _logger.info("Plant Detected")
+
+############ Check what other devices need 0x11 ###############
         if self.plant.inverter.model == Model.ALL_IN_ONE:   
             self.plant.slave_address = 0x11
+            self.plant.isHV = True
         else:
-            self.plant.slave_address = 0x32
+            self.plant.slave_address = 0x31
+            # Use that to detect the number of batteries
+        await self.refresh_plant(True, number_batteries=5, retries=3, timeout=2.0)
+        self.plant.detect_batteries()
+        _logger.critical("Batteries detected: %d", self.plant.number_batteries)
+        _logger.critical("Slave address in use: "+ str(self.plant.slave_address))
 
         # Some devices support additional registers
         # When unsupported, devices appear to simple ignore requests
@@ -118,6 +123,7 @@ class Client:
                     "Inverter did not respond to holder register query (base_register=%d)",
                     hr,
                 )
+        _logger.critical("Additional Registers: "+str(self.plant.additional_holding_registers))
 
     async def close(self) -> None:
         """Disconnect from the remote host and clean up tasks and queues."""
@@ -160,13 +166,13 @@ class Client:
         self,
         full_refresh: bool = True,
         number_batteries: int = 0,
-        timeout: float = 1.0,
+        timeout: float = 2.0,
         retries: int = 0,
     ) -> Plant:
         """Refresh data about the Plant."""
 
         reqs = commands.refresh_plant_data(
-            full_refresh, number_batteries, additional_holding_registers=self.plant.additional_holding_registers, slave_addr=self.plant.slave_address
+            full_refresh, number_batteries, isHV=self.plant.isHV, additional_holding_registers=self.plant.additional_holding_registers, slave_addr=self.plant.slave_address
         )
         await self.execute(reqs, timeout=timeout, retries=retries)
         return self.plant
@@ -175,28 +181,57 @@ class Client:
         self,
         handler: Optional[Callable] = None,
         refresh_period: float = 15.0,
-        num_batteries: int = 5,
-        timeout: float = 1.0,
-        retries: int = 1,
+        full_refresh_period: float = 60,
+        num_batteries: int = 2,
+        timeout: float = 2.0,
+        retries: int = 2,
         passive: bool = False,
     ):
         """Refresh data about the Plant."""
-        await self.connect()
-        await self.detect_plant()
-        await self.refresh_plant(True, number_batteries=num_batteries)
-        while True:
+        try:
+            await self.connect()
+            await self.detect_plant()
+            await self.refresh_plant(True, number_batteries=self.plant.number_batteries)
+            _logger.info ("Running full refresh")
             if handler:
-                handler(self.plant)
-            await asyncio.sleep(refresh_period)
-            if not passive:
-                reqs = commands.refresh_plant_data(False, self.plant.number_batteries)
-                await self.execute(
-                    reqs, timeout=timeout, retries=retries, return_exceptions=True
-                )
-                print (self.plant.inverter)
-                # How do I get this regularly updated data out of here into the read.py routine...
-                # Save to pkl and monitor?? or call read.py function to process here?
-
+                try:
+                    handler(self.plant)
+                except Exception:
+                    e = sys.exc_info()
+                    _logger.critical ("Error in calling handler: "+str(e))
+        except Exception:
+            e = sys.exc_info()
+            _logger.critical ("Error in inital detect/refresh: "+str(e))
+            return
+        # set last full_refresh time
+        lastfulltime=datetime.now()
+        while True:
+            try:
+                await asyncio.sleep(refresh_period)
+                if not passive:
+                    #Check time since last full_refresh
+                    timesincefull=datetime.now()-lastfulltime
+                    if timesincefull.total_seconds() > full_refresh_period:
+                        fullRefresh=True
+                        _logger.info ("Running full refresh")
+                        lastfulltime=datetime.now()
+                    else:
+                        fullRefresh=False
+                        _logger.info ("Running partial refresh")
+                    reqs = commands.refresh_plant_data(fullRefresh, self.plant.number_batteries, slave_addr=self.plant.slave_address,isHV=self.plant.isHV,)
+                    result= await self.execute(
+                        reqs, timeout=timeout, retries=retries, return_exceptions=True
+                    )
+                    _logger.info("Data get was successful, now running handler if needed")
+                    if handler:
+                        try:
+                            handler(self.plant)
+                        except Exception:
+                            e = sys.exc_info()
+                            _logger.critical ("Error in calling handler: "+str(e))
+            except Exception:
+                e = sys.exc_info()
+                _logger.critical ("Error in Watch Loop: "+str(e))
     async def one_shot_command(
         self, requests: list[TransparentRequest], timeout=1.5, retries=0
     ) -> None:
@@ -332,7 +367,7 @@ class Client:
                 if response_future.done():
                     response = response_future.result()
                     if tries > 1:
-                        _logger.debug("Received %s after %d attempts", response, tries)
+                        _logger.info("Received %s after %d attempts", response, tries)
                     if response.error:
                         _logger.error("Received error response, retrying: %s", response)
                     else:
@@ -341,14 +376,14 @@ class Client:
                 pass
 
             if tries <= retries:
-                _logger.debug(
+                _logger.info(
                     "Timeout awaiting %s, attempting retry %d of %d",
                     expected_response,
                     tries,
                     retries,
                 )
 
-        _logger.warning(
+        _logger.critical(
             "Timeout awaiting %s after %d tries at %ds, giving up",
             expected_response,
             tries,

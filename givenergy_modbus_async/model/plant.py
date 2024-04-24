@@ -3,6 +3,8 @@ from typing import Any
 
 from givenergy_modbus_async.model import GivEnergyBaseModel
 from givenergy_modbus_async.model.battery import Battery
+from givenergy_modbus_async.model.hvbmu import Battery as HVBattery
+from givenergy_modbus_async.model.hvbcu import Battery as HVBCU
 from givenergy_modbus_async.model.inverter import Inverter, Model, Generation
 from givenergy_modbus_async.model.register import HR, IR
 from givenergy_modbus_async.model.register_cache import (
@@ -28,7 +30,8 @@ class Plant(GivEnergyBaseModel):
     inverter_serial_number: str = ""
     data_adapter_serial_number: str = ""
     number_batteries: int = 0
-    slave_address: int = 0x32
+    slave_address: int = 0x31
+    isHV: bool = True
 
     class Config:  # noqa: D106
         allow_mutation = True
@@ -92,7 +95,10 @@ class Plant(GivEnergyBaseModel):
         i = 0
         for i in range(6):
             try:
-                assert Battery.from_orm(self.register_caches[i + 0x32]).is_valid()
+                if self.isHV:
+                    assert HVBattery.from_orm(self.register_caches[i + 0x50]).is_valid()
+                else:
+                    assert Battery.from_orm(self.register_caches[i + 0x32]).is_valid()
             except (KeyError, AssertionError):
                 break
         self.number_batteries = i
@@ -105,12 +111,34 @@ class Plant(GivEnergyBaseModel):
 
     @property
     def batteries(self) -> list[Battery]:
-        """Return Battery models for the Plant."""
-        return [
-            Battery.from_orm(self.register_caches[i + self.slave_address])
-            for i in range(self.number_batteries)
-        ]
+        """Return LV Battery models for the Plant."""
+        if 0x32 in self.register_caches.keys():
+            return [
+                Battery.from_orm(self.register_caches[i + 0x32])
+                for i in range(self.number_batteries)
+            ]
+        else:
+            return None
 
+
+    @property
+    def hvbatteries(self) -> list[HVBattery]:
+        """Return HV Battery models for the Plant."""
+        if 0x50 in self.register_caches.keys():
+            return [
+                HVBattery.from_orm(self.register_caches[i + 0x50])
+                for i in range(self.number_batteries)
+            ]
+        else:
+            return None
+
+    @property
+    def bcu(self) -> list[HVBCU]:
+        """Return HV Battery models for the Plant."""
+        if 0x50 in self.register_caches.keys():
+            return HVBCU.from_orm(self.register_caches[0x70])
+        else:
+            return None
 ##try single battery for testing
 #    @property
 #    def batteries_test(self) -> list[Battery]:
