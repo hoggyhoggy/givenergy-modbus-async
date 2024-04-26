@@ -122,6 +122,58 @@ class Status(IntEnum):
     FLASHING_FIRMWARE_UPDATE = 4
 
 
+class Phase(StrEnum):
+    """Determine number of Phases."""
+
+    OnePhase = ("Single Phase",)
+    ThreePhase = ("Three Phase",)
+
+    __dtc_to_phases_lut__ = {
+        2: OnePhase,
+        3: OnePhase,
+        4: ThreePhase,
+        5: OnePhase,
+        6: ThreePhase,
+        7: OnePhase,
+        8: OnePhase,
+    }
+
+    @classmethod
+    def from_device_type_code(cls, device_type_code: str):
+        """Return the appropriate model from a given serial number."""
+        prefix = int(device_type_code[0])
+        if prefix in cls.__dtc_to_phases_lut__:
+            return cls.__dtc_to_phases_lut__[prefix]
+        else:
+            # raise UnknownModelError(f"Cannot determine model number from serial number {serial_number}")
+            return 'Unknown'
+
+
+class InvertorPower(StrEnum):
+    """Map Invertor max power"""
+
+    __dtc_to_power_lut__ = {
+        '2001': 5000,
+        '2002': 4600,
+        '2003': 3600,
+        '3001': 3000,
+        '3002': 3600,
+        '4001': 6000,
+        '4002': 8000,
+        '4003': 10000,
+        '4004': 11000,
+        '8001': 6000,
+    }
+
+    @classmethod
+    def from_dtc_power(cls, dtc: str):
+        """Return the appropriate model from a given serial number."""
+        if dtc in cls.__dtc_to_power_lut__:
+            return cls.__dtc_to_power_lut__[dtc]
+        else:
+            return 0
+
+
 class Inverter(RegisterGetter):
     """Structured format for all inverter attributes."""
 
@@ -227,6 +279,7 @@ class Inverter(RegisterGetter):
         "start_system_auto_test": Def(C.bool, None, HR(127)),
         "enable_spi": Def(C.bool, None, HR(128)),
         # skip PF configuration and protection settings 129-166
+        "inverter_reboot": Def(C.uint16, None, HR(163)),
         "threephase_balance_mode": Def(C.uint16, None, HR(167)),
         "threephase_abc": Def(C.uint16, None, HR(168)),
         "threephase_balance_1": Def(C.uint16, None, HR(169)),
@@ -243,6 +296,43 @@ class Inverter(RegisterGetter):
         #
         "enable_standard_self_consumption_logic": Def(C.bool, None, HR(199)),
         "cmd_bms_flash_update": Def(C.bool, None, HR(200)),
+        "charge_target_soc_1": Def(C.uint16, None, HR(242)),
+        "charge_slot_2": Def(C.timeslot, None, HR(243), HR(244)),
+        "charge_target_soc_2": Def(C.uint16, None, HR(245)),
+        "charge_slot_3": Def(C.timeslot, None, HR(246), HR(247)),
+        "charge_target_soc_3": Def(C.uint16, None, HR(248)),
+        "charge_slot_4": Def(C.timeslot, None, HR(249), HR(250)),
+        "charge_target_soc_4": Def(C.uint16, None, HR(251)),
+        "charge_slot_5": Def(C.timeslot, None, HR(252), HR(253)),
+        "charge_target_soc_5": Def(C.uint16, None, HR(254)),
+        "charge_slot_6": Def(C.timeslot, None, HR(255), HR(256)),
+        "charge_target_soc_6": Def(C.uint16, None, HR(257)),
+        "charge_slot_7": Def(C.timeslot, None, HR(258), HR(259)),
+        "charge_target_soc_7": Def(C.uint16, None, HR(260)),
+        "charge_slot_8": Def(C.timeslot, None, HR(261), HR(262)),
+        "charge_target_soc_8": Def(C.uint16, None, HR(263)),
+        "charge_slot_9": Def(C.timeslot, None, HR(264), HR(265)),
+        "charge_target_soc_9": Def(C.uint16, None, HR(266)),
+        "charge_slot_10": Def(C.timeslot, None, HR(267), HR(268)),
+        "charge_target_soc_10": Def(C.uint16, None, HR(269)),
+        "discharge_target_soc_1": Def(C.uint16, None, HR(272)),
+        "discharge_target_soc_2": Def(C.uint16, None, HR(275)),
+        "discharge_slot_3": Def(C.timeslot, None, HR(276), HR(277)),
+        "discharge_target_soc_3": Def(C.uint16, None, HR(278)),
+        "discharge_slot_4": Def(C.timeslot, None, HR(279), HR(280)),
+        "discharge_target_soc_4": Def(C.uint16, None, HR(281)),
+        "discharge_slot_5": Def(C.timeslot, None, HR(282), HR(283)),
+        "discharge_target_soc_5": Def(C.uint16, None, HR(284)),
+        "discharge_slot_6": Def(C.timeslot, None, HR(285), HR(286)),
+        "discharge_target_soc_6": Def(C.uint16, None, HR(287)),
+        "discharge_slot_7": Def(C.timeslot, None, HR(288), HR(289)),
+        "discharge_target_soc_7": Def(C.uint16, None, HR(290)),
+        "discharge_slot_8": Def(C.timeslot, None, HR(291), HR(292)),
+        "discharge_target_soc_8": Def(C.uint16, None, HR(293)),
+        "discharge_slot_9": Def(C.timeslot, None, HR(294), HR(295)),
+        "discharge_target_soc_9": Def(C.uint16, None, HR(296)),
+        "discharge_slot_10": Def(C.timeslot, None, HR(297), HR(298)),
+        "discharge_target_soc_10": Def(C.uint16, None, HR(299)),
         #
         # Holding Registers, block 300-359
         #
@@ -252,10 +342,10 @@ class Inverter(RegisterGetter):
         # Holding Registers, block 4080-4139
         #
         "pv_power_setting": Def(C.uint32, None, HR(4107), HR(4108)),
-        "e_battery_discharge_total2": Def(C.uint32, None, HR(4109), HR(4110)),
-        "e_battery_charge_total2": Def(C.uint32, None, HR(4111), HR(4112)),
-        "e_battery_discharge_today": Def(C.uint16, None, HR(4113)),
-        "e_battery_charge_today": Def(C.uint16, None, HR(4114)),
+        "e_battery_discharge_total3": Def(C.uint32, None, HR(4109), HR(4110)),
+        "e_battery_charge_total3": Def(C.uint32, None, HR(4111), HR(4112)),
+        "e_battery_discharge_today3": Def(C.uint16, None, HR(4113)),
+        "e_battery_charge_today3": Def(C.uint16, None, HR(4114)),
         #
         # Holding Registers, block 4140-4199
         #
@@ -291,8 +381,8 @@ class Inverter(RegisterGetter):
         "p_eps_backup": Def(C.uint16, None, IR(31)),
         "e_grid_in_total": Def(C.uint32, C.deci, IR(32), IR(33)),
         "e_inverter_in_day": Def(C.deci, None, IR(35)),
-        "e_battery_charge_day": Def(C.deci, None, IR(36)),
-        "e_battery_discharge_day": Def(C.deci, None, IR(37)),
+        "e_battery_charge_today": Def(C.deci, None, IR(36)),
+        "e_battery_discharge_today": Def(C.deci, None, IR(37)),
         "inverter_countdown": Def(C.uint16, None, IR(38)),
         # FAULT_CODE_H = (39, {'type': T_BITFIELD})
         # FAULT_CODE_L = (40, {'type': T_BITFIELD})
@@ -312,6 +402,12 @@ class Inverter(RegisterGetter):
         "temp_battery": Def(C.deci, None, IR(56)),
         "i_grid_port": Def(C.centi, None, IR(58)),
         "battery_percent": Def(C.uint16, None, IR(59)),
+        "e_battery_discharge_total": Def(C.deci, None, IR(105)),
+        "e_battery_charge_total": Def(C.deci, None, IR(106)),
+        "e_battery_discharge_total2": Def(C.deci, None, HR(180)),
+        "e_battery_charge_total2": Def(C.deci, None, IR(181)),
+        "e_battery_discharge_today2": Def(C.deci, None, IR(182)),
+        "e_battery_charge_today2": Def(C.deci, None, IR(183)),
     }
 
     # @computed('p_pv')
