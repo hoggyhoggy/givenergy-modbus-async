@@ -1,4 +1,18 @@
-"""Data model."""
+"""
+The data model that represents a GivEnergy system.
+
+From a modbus perspective, devices present themselves as collections
+of 16-bit numbered registers. An instance of *Plant* is used to cache
+the values of these registers for the various devices (inverter and
+batteries) making up your system.
+
+Then from the plant you can access an Inverter and an array of Battery
+instances - these interpret the low-level modbus registers as higher-level
+python datatypes.
+
+Note that the model package provides read-only access to the state of
+the system.
+"""
 
 from __future__ import annotations
 

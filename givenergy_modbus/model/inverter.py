@@ -1,8 +1,16 @@
+"""
+High level interpretation of the inverter modbus registers.
+
+The Inverter itself is the primary class; the others are
+supporting enumerations.
+"""
+
 from enum import IntEnum, StrEnum
 import math
 from typing import Optional
 from .register import (
     Converter as C,
+    DynamicDoc,
     HR,
     IR,
     RegisterDefinition as Def,
@@ -121,7 +129,6 @@ class Status(IntEnum):
     FAULT = 3
     FLASHING_FIRMWARE_UPDATE = 4
 
-
 class Phase(StrEnum):
     """Determine number of Phases."""
 
@@ -174,8 +181,12 @@ class InvertorPower(StrEnum):
             return 0
 
 
-class Inverter(RegisterGetter):
-    """Structured format for all inverter attributes."""
+class Inverter(RegisterGetter, metaclass=DynamicDoc):
+    # pylint: disable=missing-class-docstring
+    # The metaclass turns accesses to __doc__ into calls to
+    # _gendoc()  (which we inherit from RegisterGetter)
+
+    _DOC = """Interprets the low-level registers in the inverter as named attributes."""
 
     # TODO: add register aliases and valid=(min,max) for writable registers
 
@@ -503,4 +514,4 @@ class Inverter(RegisterGetter):
                 if value % 100 >= 60:
                     raise ValueError(f'{value} is not a valid time')
 
-        return regdef.registers[0]._idx
+        return regdef.registers[0]._idx  # pylint: disable=protected-access

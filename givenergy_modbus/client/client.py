@@ -160,6 +160,33 @@ class Client:
         await self.connect()
         await self.execute(requests, timeout=timeout, retries=retries)
 
+
+    # The i/o activity is co-ordinated by two background tasks:
+    # - the consumer reads from the socket, responds to heartbeat requests,
+    #   and sends register updates to the plant
+    # - the producer takes requests from tx_queue and writes them to the socket
+    #
+    # In detail:
+    #  the application task calls client.send_request_and_await_response()
+    #  - this constructs a couple of 'future' objects, which are used for signalling
+    #  - it constructs an object to represent the expected response, and
+    #    adds it to the expected_responses dict with one of the futures
+    #  - it then adds the request to tx_queue, with the other future, and awaits that future
+    #  - when the producer has written the request to the socket, it marks the future as complete
+    #  - this reawakens the application task.
+    #
+    #  the application now waits for the future attached to the expected response, with a timeout
+    #  - if the response arrives, the consumer worker receives it and signals the future
+    #  the application then retries on timeout, or is done.
+    #
+    #  Entries don't seem to be removed from expected_responses dict.
+    #  Instead, when an entry is reused for a new request, if the existing
+    #  future was not signalled, it gets cancelled.
+    #
+    #  client.exec() takes an array of requests, and creates one coroutine per request, to run
+    #  send_request_and_await_response in parallel. They happen in random order ?
+
+
     async def _task_network_consumer(self):
         """Task for orchestrating incoming data."""
         while hasattr(self, "reader") and self.reader and not self.reader.at_eof():
@@ -240,7 +267,7 @@ class Client:
         retries: int,
         return_exceptions: bool = False,
     ) -> "Future[List[TransparentResponse]]":
-        """Helper to perform multiple requests in bulk."""
+        """Helper to perform multiple requests in parallel."""
         return asyncio.gather(
             *[
                 self.send_request_and_await_response(
