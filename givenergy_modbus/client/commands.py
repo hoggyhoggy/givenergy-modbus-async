@@ -1,8 +1,12 @@
-"""High-level methods for interacting with a remote system."""
+"""High-level methods for interacting with a remote system.
 
+Note that these don't actually send requests to the inverter.
+They simply prepare lists of requests that need to be sent using
+the client.
+"""
+
+from datetime import datetime
 from typing import Optional
-
-from arrow import Arrow
 from typing_extensions import deprecated  # type: ignore[attr-defined]
 
 from ..model import TimeSlot
@@ -293,7 +297,7 @@ def reset_discharge_slot_2() -> list[TransparentRequest]:
     return _set_charge_slot(True, 2, None)
 
 
-def set_system_date_time(dt: Arrow) -> list[TransparentRequest]:
+def set_system_date_time(dt: datetime) -> list[TransparentRequest]:
     """Set the date & time of the inverter."""
     return [
         WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_YEAR, dt.year - 2000),
