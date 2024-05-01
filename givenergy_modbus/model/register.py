@@ -4,11 +4,11 @@ from json import JSONEncoder
 import math
 from typing import Any, Callable, Optional, Union
 
-from givenergy_modbus.exceptions import (
+from ..exceptions import (
     ConversionError,
 )
 
-from givenergy_modbus.model import TimeSlot
+from . import TimeSlot
 
 
 class Converter:

@@ -1,6 +1,6 @@
 from enum import IntEnum
 
-from givenergy_modbus.model.register import (
+from .register import (
     Converter as DT,
     RegisterDefinition as Def,
     IR,

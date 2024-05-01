@@ -4,17 +4,17 @@ import socket
 from asyncio import Future, Queue, StreamReader, StreamWriter, Task
 from typing import Callable, Dict, List, Optional, Tuple
 
-from givenergy_modbus.client import commands
-from givenergy_modbus.exceptions import (
+from . import commands
+from ..exceptions import (
     CommunicationError,
     ExceptionBase,
 )
-from givenergy_modbus.framer import (
+from ..framer import (
     ClientFramer,
     Framer,
 )
-from givenergy_modbus.model.plant import Plant
-from givenergy_modbus.pdu import (
+from ..model.plant import Plant
+from ..pdu import (
     HeartbeatRequest,
     TransparentRequest,
     TransparentResponse,

@@ -5,12 +5,12 @@ from typing import Optional
 from arrow import Arrow
 from typing_extensions import deprecated  # type: ignore[attr-defined]
 
-from givenergy_modbus.model import TimeSlot
-from givenergy_modbus.model.inverter import (
+from ..model import TimeSlot
+from ..model.inverter import (
     Inverter,
     BatteryPauseMode,
 )
-from givenergy_modbus.pdu import (
+from ..pdu import (
     ReadHoldingRegistersRequest,
     ReadInputRegistersRequest,
     TransparentRequest,

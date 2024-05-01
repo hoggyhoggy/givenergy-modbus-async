@@ -1,7 +1,7 @@
 from enum import IntEnum, StrEnum
 import math
 from typing import Optional
-from givenergy_modbus.model.register import (
+from .register import (
     Converter as C,
     HR,
     IR,

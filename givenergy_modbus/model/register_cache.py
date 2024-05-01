@@ -1,15 +1,14 @@
 import datetime
 import json
-from typing import TYPE_CHECKING, DefaultDict, Optional
+from typing import DefaultDict, Optional
 
-from givenergy_modbus.model.register import (
+from .register import (
     HR,
     IR,
     Register,
 )
 
-if TYPE_CHECKING:
-    from givenergy_modbus.model import TimeSlot
+from ..model import TimeSlot
 
 
 class RegisterCache(DefaultDict[Register, int]):
@@ -95,6 +94,4 @@ class RegisterCache(DefaultDict[Register, int]):
 
     def to_timeslot(self, start: Register, end: Register) -> "TimeSlot":
         """Combine two registers into a time slot."""
-        from givenergy_modbus.model import TimeSlot
-
         return TimeSlot.from_repr(self[start], self[end])

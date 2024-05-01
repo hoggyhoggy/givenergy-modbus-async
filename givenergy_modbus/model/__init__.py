@@ -8,7 +8,7 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from givenergy_modbus.model.register_cache import (
+    from .register_cache import (
         RegisterCache,
     )
 
