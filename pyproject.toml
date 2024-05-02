@@ -17,8 +17,6 @@ classifiers=[
     'Natural Language :: English',
     'Operating System :: OS Independent',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.9',
-    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Topic :: Home Automation',
     'Topic :: Scientific/Engineering',
@@ -33,9 +31,9 @@ packages = [
 aiofiles = "^0.8.0"
 arrow = "^1.2.2"
 crccheck = "^1.1"
-pydantic = "^1.10.7"
 python = ">=3.9,<3.12"
 aenum = "^3.1.12"
+typing_extensions = ">= 4.5.0"
 
 [tool.poetry.group.dev.dependencies]
 bump2version = "^1.0.1"

@@ -18,7 +18,7 @@ class RegisterCache(DefaultDict[Register, int]):
     def __init__(self, registers: Optional[dict[Register, int]] = None) -> None:
         if registers is None:
             registers = {}
-        super().__init__(lambda: 0, registers)
+        super().__init__(lambda: None, registers)
 
     def json(self) -> str:
         """Return JSON representation of the register cache, to mirror `from_json()`."""  # noqa: D402,D202,E501
