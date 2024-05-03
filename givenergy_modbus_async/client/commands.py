@@ -110,6 +110,21 @@ class RegisterMap:
 def refresh_additional_holding_registers(
     base_register: int,
     slave_addr: int,
+    reg_count: int = 60,
+) -> list[TransparentRequest]:
+    """Requests one specific set of holding registers.
+
+    This is intended to be used in cases where registers may or may not be present,
+    depending on device capabilities."""
+    return [
+        ReadHoldingRegistersRequest(
+            base_register=base_register, register_count=reg_count, slave_address=slave_addr
+        )
+    ]
+
+def refresh_additional_input_registers(
+    base_register: int,
+    slave_addr: int,
 ) -> list[TransparentRequest]:
     """Requests one specific set of holding registers.
 
@@ -117,7 +132,7 @@ def refresh_additional_holding_registers(
     depending on device capabilities."""
     
     return [
-        ReadHoldingRegistersRequest(
+        ReadInputRegistersRequest(
             base_register=base_register, register_count=60, slave_address=slave_addr
         )
     ]
@@ -129,6 +144,7 @@ def refresh_plant_data(
     slave_addr: int = 0x31,
     isHV: bool = False,
     additional_holding_registers: Optional[list[int]] = None,
+    additional_input_registers: Optional[list[int]] = None,
 ) -> list[TransparentRequest]:
     """Refresh plant data."""
 
@@ -140,6 +156,11 @@ def refresh_plant_data(
             base_register=180, register_count=60, slave_address=slave_addr
         ),
     ]
+
+    if additional_input_registers:
+        for ir in additional_input_registers:
+            requests.extend(refresh_additional_input_registers(ir, slave_addr))
+
     if complete:
         requests.append(
             ReadHoldingRegistersRequest(
@@ -156,17 +177,16 @@ def refresh_plant_data(
                 base_register=120, register_count=60, slave_address=slave_addr
             )
         )
-#        requests.append(
-#            ReadInputRegistersRequest(
-#                base_register=120, register_count=60, slave_address=slave_addr
-#            )
-#        )
 
         if additional_holding_registers:
             for hr in additional_holding_registers:
-                requests.extend(refresh_additional_holding_registers(hr, slave_addr))
+                if hr == 2040:      #For EMS there are only 36 regs in the 2040 block
+                    requests.extend(refresh_additional_holding_registers(hr, slave_addr,36))
+                else:
+                    requests.extend(refresh_additional_holding_registers(hr, slave_addr))
+                
 
-    if isHV:    #Get Battery data from AIO/HV systems
+    if isHV and not number_batteries==0:    #Get Battery data from AIO/HV systems
         # BCU
         requests.append(
                 ReadInputRegistersRequest(
@@ -208,6 +228,7 @@ def set_charge_target(target_soc: int) -> list[TransparentRequest]:
     """Sets inverter to stop charging when SOC reaches the desired level. Also referred to as "winter mode"."""
     if not 4 <= target_soc <= 100:
         raise ValueError(f"Charge Target SOC ({target_soc}) must be in [4-100]%")
+    # Do we want to do this enable/disable charge etc... or just set the targets?
     ret = set_enable_charge(True)
     if target_soc == 100:
         ret.extend(disable_charge_target())
@@ -216,7 +237,10 @@ def set_charge_target(target_soc: int) -> list[TransparentRequest]:
         ret.append(
             WriteHoldingRegisterRequest(RegisterMap.CHARGE_TARGET_SOC, target_soc)
         )
-    return ret
+    return ret 
+    
+    #return [WriteHoldingRegisterRequest(RegisterMap.CHARGE_TARGET_SOC, target_soc)]
+
 
 def set_soc_target(discharge: bool, idx: int, target_soc: int) -> list[TransparentRequest]:
     """ Sets inverter SOC targets for any charge or discharge slot

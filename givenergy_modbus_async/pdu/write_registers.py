@@ -18,32 +18,32 @@ _logger = logging.getLogger(__name__)
 
 # Canonical list of registers that are safe to write to.
 WRITE_SAFE_REGISTERS = {
-    20,  # ENABLE_CHARGE_TARGET
-    27,  # BATTERY_POWER_MODE
-    29,  # SOC_FORCE_ADJUST
-    31,  # CHARGE_SLOT_2_START
-    32,  # CHARGE_SLOT_2_END
-    35,  # SYSTEM_TIME_YEAR
-    36,  # SYSTEM_TIME_MONTH
-    37,  # SYSTEM_TIME_DAY
-    38,  # SYSTEM_TIME_HOUR
-    39,  # SYSTEM_TIME_MINUTE
-    40,  # SYSTEM_TIME_SECOND
-    44,  # DISCHARGE_SLOT_2_START
-    45,  # DISCHARGE_SLOT_2_END
-    50,  # ACTIVE_POWER_RATE
-    56,  # DISCHARGE_SLOT_1_START
-    57,  # DISCHARGE_SLOT_1_END
-    59,  # ENABLE_DISCHARGE
-    94,  # CHARGE_SLOT_1_START
-    95,  # CHARGE_SLOT_1_END
-    96,  # ENABLE_CHARGE
-    110,  # BATTERY_SOC_RESERVE
-    111,  # BATTERY_CHARGE_LIMIT
-    112,  # BATTERY_DISCHARGE_LIMIT
-    114,  # BATTERY_DISCHARGE_MIN_POWER_RESERVE
-    116,  # CHARGE_TARGET_SOC
-    163,  # REBOOT
+    20,   #ENABLE_CHARGE_TARGET
+    27,   #BATTERY_POWER_MODE
+    29,   #SOC_FORCE_ADJUST
+    31,   #CHARGE_SLOT_2_START
+    32,   #CHARGE_SLOT_2_END
+    35,   #SYSTEM_TIME_YEAR
+    36,   #SYSTEM_TIME_MONTH
+    37,   #SYSTEM_TIME_DAY
+    38,   #SYSTEM_TIME_HOUR
+    39,   #SYSTEM_TIME_MINUTE
+    40,   #SYSTEM_TIME_SECOND
+    44,   #DISCHARGE_SLOT_2_START
+    45,   #DISCHARGE_SLOT_2_END
+    50,   #ACTIVE_POWER_RATE
+    56,   #DISCHARGE_SLOT_1_START
+    57,   #DISCHARGE_SLOT_1_END
+    59,   #ENABLE_DISCHARGE
+    94,   #CHARGE_SLOT_1_START
+    95,   #CHARGE_SLOT_1_END
+    96,   #ENABLE_CHARGE
+    110,  #BATTERY_SOC_RESERVE
+    111,  #BATTERY_CHARGE_LIMIT
+    112,  #BATTERY_DISCHARGE_LIMIT
+    114,  #BATTERY_DISCHARGE_MIN_POWER_RESERVE
+    116,  #CHARGE_TARGET_SOC
+    163,  #REBOOT
     242,  #CHARGE_TARGET_SOC_1
     243,  #CHARGE_SLOT_2_START
     244,  #CHARGE_SLOT_2_END
@@ -98,11 +98,39 @@ WRITE_SAFE_REGISTERS = {
     297,  #DISCHARGE_SLOT_10_START
     298,  #DISCHARGE_SLOT_10_END
     299,  #DISCHARGE_TARGET_SOC_10
-    313,  # BATTERY_CHARGE_LIMIT_AC
-    314,  # BATTERY_DISCHARGE_LIMIT_AC
+    313,  #BATTERY_CHARGE_LIMIT_AC
+    314,  #BATTERY_DISCHARGE_LIMIT_AC
     318,  #BATTERY_PAUSE_MODE
     319,  #BATTERY_PAUSE_SLOT_START
     320,  #BATTERY_PAUSE_SLOT_END
+    2040, #EMS enable plant control
+    2044, #EMS discharge slot 1 start
+    2045, #EMS end
+    2046, #EMS target
+    2047, #EMS discharge slot 2 start
+    2048, #EMS end
+    2049, #EMS target
+    2050, #EMS discharge slot 3 start
+    2051, #EMS end
+    2052, #EMS target
+    2053, #EMS charge slot 1 start
+    2054, #EMS end
+    2055, #EMS target
+    2056, #EMS charge slot 2 start
+    2057, #EMS end
+    2058, #EMS target
+    2059, #EMS charge slot 3 start
+    2060, #EMS end
+    2061, #EMS target
+    2062, #EMS export slot 1 start
+    2063, #EMS end
+    2064, #EMS target
+    2065, #EMS export slot 2 start
+    2066, #EMS end
+    2067, #EMS target
+    2068, #EMS export slot 3 start
+    2069, #EMS end
+    2070, #EMS target
 }
 
 

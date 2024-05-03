@@ -6,6 +6,9 @@ from givenergy_modbus_async.model.battery import Battery
 from givenergy_modbus_async.model.hvbmu import Battery as HVBattery
 from givenergy_modbus_async.model.hvbcu import Battery as HVBCU
 from givenergy_modbus_async.model.inverter import Inverter, Model, Generation
+from givenergy_modbus_async.model.ems import Ems
+from givenergy_modbus_async.model.gateway import Gateway
+from givenergy_modbus_async.model.threephase import ThreePhase
 from givenergy_modbus_async.model.register import HR, IR
 from givenergy_modbus_async.model.register_cache import (
     RegisterCache,
@@ -27,6 +30,7 @@ class Plant(GivEnergyBaseModel):
 
     register_caches: dict[int, RegisterCache] = {}
     additional_holding_registers: list[int] = []
+    additional_input_registers: list[int] = []
     inverter_serial_number: str = ""
     data_adapter_serial_number: str = ""
     number_batteries: int = 0
@@ -92,6 +96,9 @@ class Plant(GivEnergyBaseModel):
         Since we attempt to decode register data in the process, it's possible for an
         exception to be raised.
         """
+        if self.inverter.model==Model.EMS or self.inverter.model==Model.GATEWAY:
+            self.number_batteries=0
+            return
         i = 0
         for i in range(6):
             try:
@@ -103,34 +110,52 @@ class Plant(GivEnergyBaseModel):
                 break
         self.number_batteries = i
 
-
+    # how to I choose what "inverter" model to use:- Inverter, EMS, 3Ph, Gateway
     @property
-    def inverter(self) -> Inverter:
+    def inverter(self): # -> Inverter:
         """Return Inverter model for the Plant."""
-        return Inverter.from_orm(self.register_caches[self.slave_address])
-
-    @property
-    def batteries(self) -> list[Battery]:
-        """Return LV Battery models for the Plant."""
-        if 0x32 in self.register_caches.keys():
-            return [
-                Battery.from_orm(self.register_caches[i + 0x32])
-                for i in range(self.number_batteries)
-            ]
+        #if self.register_caches[self.slave_address]
+        try:
+            modeltype=hex(self.register_caches[self.slave_address].get(HR(0)))[2:3]
+        except:
+            return Inverter.from_orm(self.register_caches[self.slave_address])
+        
+        if modeltype=="5":
+            return Ems.from_orm(self.register_caches[self.slave_address])
+        elif modeltype=="4" or modeltype=="6":
+            return ThreePhase.from_orm(self.register_caches[self.slave_address])
+        elif modeltype=="7":
+            return Gateway.from_orm(self.register_caches[self.slave_address])
+        #elif self.plant.inverter.model==Model.AC_3PH or self.plant.inverter.model==Model.HYBRID_3PH:
+        #    return threePhase.from_orm(self.register_caches[self.slave_address])
         else:
-            return None
-
-
+            return Inverter.from_orm(self.register_caches[self.slave_address])
+        
+    
     @property
-    def hvbatteries(self) -> list[HVBattery]:
-        """Return HV Battery models for the Plant."""
-        if 0x50 in self.register_caches.keys():
+    def batteries(self): # -> list[Battery]:
+        """Return LV Battery models for the Plant."""
+        if self.isHV:
             return [
                 HVBattery.from_orm(self.register_caches[i + 0x50])
                 for i in range(self.number_batteries)
             ]
         else:
-            return None
+            return [
+                Battery.from_orm(self.register_caches[i + 0x32])
+                for i in range(self.number_batteries)
+            ]
+        
+    #@property
+    #def hvbatteries(self) -> list[HVBattery]:
+    #    """Return HV Battery models for the Plant."""
+    #    if 0x50 in self.register_caches.keys():
+    #        return [
+    #            HVBattery.from_orm(self.register_caches[i + 0x50])
+    #            for i in range(self.number_batteries)
+    #        ]
+    #    else:
+    #        return None
 
     @property
     def bcu(self) -> list[HVBCU]:
@@ -145,3 +170,4 @@ class Plant(GivEnergyBaseModel):
 #        """Return Battery models for the Plant."""
 #        return Battery.from_orm(self.register_caches[self.slave_address])
         
+

@@ -2,9 +2,12 @@ import asyncio
 import logging
 import socket
 import sys
+import time
 from asyncio import Future, Queue, StreamReader, StreamWriter, Task
 from typing import Callable, Dict, List, Optional, Tuple
 from datetime import datetime
+
+from givenergy_modbus_async.pdu.read_registers import ReadInputRegistersResponse, ReadHoldingRegistersResponse
 
 from givenergy_modbus_async.client import commands
 from givenergy_modbus_async.exceptions import (
@@ -53,7 +56,7 @@ class Client:
         #     'all': Queue(maxsize=1000),
         #     'error': Queue(maxsize=1000),
         # }
-
+    
     async def connect(self) -> None:
         """Connect to the remote host and start background tasks."""
         try:
@@ -77,7 +80,7 @@ class Client:
         self.connected = True
         _logger.info("Connection established to %s:%d", self.host, self.port)
 
-    async def detect_plant(self, timeout: int = 1, retries: int = 3) -> None:
+    async def detect_plant(self, timeout: int = 3, retries: int = 10, additional: bool=True) -> None:
         """Detect inverter capabilities that influence how subsequent requests are made."""
         _logger.info("Detecting plant")
         from givenergy_modbus_async.model.inverter import Model
@@ -88,19 +91,28 @@ class Client:
         self.plant.slave_address=0x11
         self.plant.isHV = False
 
-        await self.refresh_plant(True, number_batteries=0, retries=3, timeout=2.0)
+        await self.refresh_plant(True, number_batteries=0, retries=retries, timeout=timeout)
 
         _logger.info("Plant Detected")
 
 ############ Check what other devices need 0x11 ###############
-        if self.plant.inverter.model == Model.ALL_IN_ONE:   
+        if self.plant.inverter.model in (Model.ALL_IN_ONE, Model.EMS,Model.GATEWAY):
             self.plant.slave_address = 0x11
-            self.plant.isHV = True
         else:
             self.plant.slave_address = 0x31
+
+        if self.plant.inverter.model == Model.ALL_IN_ONE:
+            self.plant.isHV = True
+        else:
+            self.plant.isHV= False
+
+        if self.plant.inverter.model in (Model.EMS,Model.GATEWAY):
+            self.plant.number_batteries=0
+        else:
+            await self.refresh_plant(True, number_batteries=5, retries=retries, timeout=timeout)
+            self.plant.detect_batteries()
+        
             # Use that to detect the number of batteries
-        await self.refresh_plant(True, number_batteries=5, retries=3, timeout=2.0)
-        self.plant.detect_batteries()
         _logger.critical("Batteries detected: %d", self.plant.number_batteries)
         _logger.critical("Slave address in use: "+ str(self.plant.slave_address))
 
@@ -108,22 +120,50 @@ class Client:
         # When unsupported, devices appear to simple ignore requests
         
 ############ What register sets should we look for????
-        possible_additional_holding_registers = [180, 240, 300, 360]
-        for hr in possible_additional_holding_registers:
-            try:
-                reqs = commands.refresh_additional_holding_registers(hr,self.plant.slave_address)
-                await self.execute(reqs, timeout=timeout, retries=retries)
-                _logger.info(
-                    "Detected additional holding register support (base_register=%d)",
-                    hr,
-                )
-                self.plant.additional_holding_registers.append(hr)
-            except asyncio.TimeoutError:
-                _logger.debug(
-                    "Inverter did not respond to holder register query (base_register=%d)",
-                    hr,
-                )
-        _logger.critical("Additional Registers: "+str(self.plant.additional_holding_registers))
+        if additional:
+
+            # Set additional registers based on model
+            additional_registers=Model.add_regs(self.plant.inverter.model.value)
+            possible_additional_input_registers=additional_registers[0]
+            possible_additional_holding_registers=additional_registers[1]
+
+            #possible_additional_input_registers = [2040]
+            for ir in possible_additional_input_registers:
+                try:
+                    reqs = commands.refresh_additional_input_registers(ir,self.plant.slave_address)
+                    await self.execute(reqs, timeout=timeout, retries=3)
+                    _logger.info(
+                        "Detected additional input register support (base_register=%d)",
+                        ir,
+                    )
+                    self.plant.additional_input_registers.append(ir)
+                except asyncio.TimeoutError:
+                    _logger.debug(
+                        "Inverter did not respond to input register query (base_register=%d)",
+                        ir,
+                    )
+            _logger.critical("Additional Input Registers: "+str(self.plant.additional_input_registers))
+
+
+            #possible_additional_holding_registers = [180, 240, 300, 360, 2040]
+            for hr in possible_additional_holding_registers:
+                try:
+                    if hr == 2040:      #For EMS there are only 36 regs in the 2040 block
+                        reqs = commands.refresh_additional_holding_registers(hr,self.plant.slave_address,36)
+                    else:
+                        reqs = commands.refresh_additional_holding_registers(hr,self.plant.slave_address)
+                    await self.execute(reqs, timeout=timeout, retries=3)
+                    _logger.info(
+                        "Detected additional holding register support (base_register=%d)",
+                        hr,
+                    )
+                    self.plant.additional_holding_registers.append(hr)
+                except asyncio.TimeoutError:
+                    _logger.debug(
+                        "Inverter did not respond to holding register query (base_register=%d)",
+                        hr,
+                    )
+            _logger.critical("Additional Holding Registers: "+str(self.plant.additional_holding_registers))
 
     async def close(self) -> None:
         """Disconnect from the remote host and clean up tasks and queues."""
@@ -166,13 +206,13 @@ class Client:
         self,
         full_refresh: bool = True,
         number_batteries: int = 0,
-        timeout: float = 2.0,
-        retries: int = 0,
+        timeout: float = 3,
+        retries: int = 5,
     ) -> Plant:
         """Refresh data about the Plant."""
 
         reqs = commands.refresh_plant_data(
-            full_refresh, number_batteries, isHV=self.plant.isHV, additional_holding_registers=self.plant.additional_holding_registers, slave_addr=self.plant.slave_address
+            full_refresh, number_batteries, isHV=self.plant.isHV, additional_holding_registers=self.plant.additional_holding_registers,additional_input_registers=self.plant.additional_input_registers, slave_addr=self.plant.slave_address
         )
         await self.execute(reqs, timeout=timeout, retries=retries)
         return self.plant
@@ -183,8 +223,8 @@ class Client:
         refresh_period: float = 15.0,
         full_refresh_period: float = 60,
         num_batteries: int = 2,
-        timeout: float = 2.0,
-        retries: int = 2,
+        timeout: float = 3,
+        retries: int = 5,
         passive: bool = False,
     ):
         """Refresh data about the Plant."""
@@ -192,7 +232,7 @@ class Client:
             await self.connect()
             await self.detect_plant()
             await self.refresh_plant(True, number_batteries=self.plant.number_batteries)
-            _logger.info ("Running full refresh")
+            _logger.critical ("Running full refresh")
             if handler:
                 try:
                     handler(self.plant)
@@ -202,6 +242,7 @@ class Client:
         except Exception:
             e = sys.exc_info()
             _logger.critical ("Error in inital detect/refresh: "+str(e))
+            self.close()
             return
         # set last full_refresh time
         lastfulltime=datetime.now()
@@ -213,27 +254,42 @@ class Client:
                     timesincefull=datetime.now()-lastfulltime
                     if timesincefull.total_seconds() > full_refresh_period:
                         fullRefresh=True
-                        _logger.info ("Running full refresh")
+                        _logger.critical ("Running full refresh")
                         lastfulltime=datetime.now()
                     else:
                         fullRefresh=False
-                        _logger.info ("Running partial refresh")
-                    reqs = commands.refresh_plant_data(fullRefresh, self.plant.number_batteries, slave_addr=self.plant.slave_address,isHV=self.plant.isHV,)
-                    result= await self.execute(
-                        reqs, timeout=timeout, retries=retries, return_exceptions=True
-                    )
-                    _logger.info("Data get was successful, now running handler if needed")
+                        _logger.critical ("Running partial refresh")
+                    try:
+                        reqs = commands.refresh_plant_data(fullRefresh, self.plant.number_batteries, slave_addr=self.plant.slave_address,isHV=self.plant.isHV,)
+                        result= await self.execute(
+                            reqs, timeout=timeout, retries=retries, return_exceptions=True
+                        )
+                        error_count=0
+                        for res in result:
+                            if not isinstance(res,(ReadInputRegistersResponse,ReadHoldingRegistersResponse)):
+                                error_count=error_count+1
+                        reg=len(result)/2
+                        if error_count>reg:
+                            raise Exception
+                        _logger.critical("Data get was successful, now running handler if needed: ")
+                    except Exception:
+                        e = sys.exc_info()
+                        _logger.error("Error in watch loop execute command: "+str(e)+"Not processing data")
+                        continue
                     if handler:
                         try:
                             handler(self.plant)
                         except Exception:
                             e = sys.exc_info()
-                            _logger.critical ("Error in calling handler: "+str(e))
+                            _logger.error ("Error in running data procesing: "+str(e))
             except Exception:
                 e = sys.exc_info()
-                _logger.critical ("Error in Watch Loop: "+str(e))
+                _logger.error ("Error in Watch Loop: "+str(e))
+                await self.close()
+
+
     async def one_shot_command(
-        self, requests: list[TransparentRequest], timeout=1.5, retries=0
+        self, requests: list[TransparentRequest], timeout=3, retries=10
     ) -> None:
         """Run a single set of requests and return."""
         await self.connect()

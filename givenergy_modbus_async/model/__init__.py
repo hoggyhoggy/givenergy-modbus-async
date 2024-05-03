@@ -63,11 +63,3 @@ class TimeSlot:
         end_hour = int(end[:-2])
         end_minute = int(end[-2:])
         return cls(time(start_hour, start_minute), time(end_hour, end_minute))
-
-
-# from custom_components.givenergy_local.givenergy_modbus.model import battery, inverter, plant, register_cache
-#
-# Plant = plant.Plant
-# Inverter = inverter.Inverter
-# Battery = battery.Battery
-# RegisterCache = register_cache.RegisterCache
