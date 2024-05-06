@@ -1,9 +1,8 @@
-
 import logging
 
 from .battery import Battery
 from .inverter import Inverter
-from .register import HR, IR
+from .register import HR
 from .register_cache import (
     RegisterCache,
 )
@@ -60,20 +59,14 @@ class Plant:
         self.data_adapter_serial_number = pdu.data_adapter_serial_number
 
         if isinstance(pdu, ReadHoldingRegistersResponse):
-            self.register_caches[slave_address].update(
-                {HR(k): v for k, v in pdu.to_dict().items()}
-            )
+            self.register_caches[slave_address].update(pdu.enumerate())
         elif isinstance(pdu, ReadInputRegistersResponse):
-            self.register_caches[slave_address].update(
-                {IR(k): v for k, v in pdu.to_dict().items()}
-            )
+            self.register_caches[slave_address].update(pdu.enumerate())
         elif isinstance(pdu, WriteHoldingRegisterResponse):
             if pdu.register == 0:
                 _logger.warning(f"Ignoring, likely corrupt: {pdu}")
             else:
-                self.register_caches[slave_address].update(
-                    {HR(pdu.register): pdu.value}
-                )
+                self.register_caches[slave_address][HR(pdu.register)] = pdu.value
 
     def detect_batteries(self) -> None:
         """Determine the number of batteries based on whether the register data is valid.
