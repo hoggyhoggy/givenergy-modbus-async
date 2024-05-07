@@ -3,11 +3,11 @@ import struct
 from abc import ABC
 from typing import Optional
 
-from ..codec import (
+from givenergy_modbus_async.codec import (
     PayloadDecoder,
     PayloadEncoder,
 )
-from ..exceptions import (
+from givenergy_modbus_async.exceptions import (
     InvalidFrame,
     InvalidPduState,
 )
@@ -157,7 +157,7 @@ class ClientIncomingMessage(BasePDU, ABC):
     def lookup_main_function_decoder(
         cls, function_code: int
     ) -> type["ClientIncomingMessage"]:
-        from .import (
+        from givenergy_modbus_async.pdu import (
             HeartbeatRequest,
             TransparentResponse,
         )
@@ -183,7 +183,7 @@ class ClientOutgoingMessage(BasePDU, ABC):
     def lookup_main_function_decoder(
         cls, function_code: int
     ) -> type["ClientOutgoingMessage"]:
-        from .import (
+        from givenergy_modbus_async.pdu import (
             HeartbeatResponse,
             TransparentRequest,
         )

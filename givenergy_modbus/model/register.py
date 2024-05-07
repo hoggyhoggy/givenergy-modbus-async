@@ -1,21 +1,12 @@
-"""
-Helper classes for the Plant, Inverter and Battery.
-
-Applications shouldn't need to worry about these.
-"""
-
 from dataclasses import dataclass
 from datetime import datetime
 from json import JSONEncoder
 import math
-from textwrap import dedent
 from typing import Any, Callable, Optional, Union
 
-from ..exceptions import (
-    ConversionError,
-)
+from pydantic.utils import GetterDict
 
-from . import TimeSlot
+from givenergy_modbus_async.model import TimeSlot
 
 
 class Converter:
@@ -172,114 +163,80 @@ class RegisterDefinition:
     pre_conv: Union[Callable, tuple, None]
     post_conv: Union[Callable, tuple[Callable, Any], None]
     registers: tuple["Register"]
-    valid: Optional[tuple[int, int]]
 
-    def __init__(self, *args, valid=None):
+    def __init__(self, *args, **kwargs):
         self.pre_conv = args[0]
         self.post_conv = args[1]
         self.registers = args[2:]  # type: ignore[assignment]
-        self.valid = valid
-        # only single-register attributes are writable
-        assert valid is None or len(self.registers) == 1
 
     def __hash__(self):
         return hash(self.registers)
 
 
+class RegisterGetter(GetterDict):
+    """Specifies how device attributes are derived from raw register values."""
 
-# This is used as the metaclass for Inverter and Battery,
-# in order to dynamically generate a docstring from the
-# register definitions.
-
-class DynamicDoc(type):
-    """A metaclass for generating dynamic __doc__ string.
-
-    A class using this metaclass must implement a class method
-    _gendoc() which will be invoked by any access to cls.__doc__
-    (typically documentation tools like pydoc).
-    """
-
-    @property
-    def __doc__(self):
-        """Invoke a helper to generate class docstring."""
-        return self._gendoc()
-
-
-class RegisterGetter:
-    """
-    Specifies how device attributes are derived from raw register values.
-    
-    This is the base class for Inverter and Battery, and provides the common
-    code for constructing python attrbitutes from the register definitions.
-    """
-
-    # defined by subclass
     REGISTER_LUT: dict[str, RegisterDefinition]
-    _DOC: str
 
-    # TODO: cache is actually a RegisterCache, but importing that gives a circular dependency
-    def __init__(self, cache: Any):
-        self.cache = cache  # RegisterCache
-
-    # this implements the magic of providing attributes based
-    # on the register lut
-    def __getattr__(self, name: str):
-        return self.get(name)
-
-    # or you can just use inverter.get('name')
-    def get(self, key: str) -> Any:
+    def get(self, key: str, default: Any = None) -> Any:
         """Return a named register's value, after pre- and post-conversion."""
-        r = self.REGISTER_LUT[key]
+        try:
+            r = self.REGISTER_LUT[key]
+        except KeyError:
+            return default
 
-        regs = [self.cache.get(r) for r in r.registers]
+        regs = [self._obj.get(r) for r in r.registers]
 
         if None in regs:
             return None
 
-        try:
-            if r.pre_conv:
-                if isinstance(r.pre_conv, tuple):
-                    args = regs + list(r.pre_conv[1:])
-                    val = r.pre_conv[0](*args)
-                else:
-                    val = r.pre_conv(*regs)
+        if r.pre_conv:
+            if isinstance(r.pre_conv, tuple):
+                args = regs + list(r.pre_conv[1:])
+                val = r.pre_conv[0](*args)
             else:
-                val = regs
+                val = r.pre_conv(*regs)
+        else:
+            val = regs
 
-            if r.post_conv:
-                if isinstance(r.post_conv, tuple):
-                    return r.post_conv[0](val, *r.post_conv[1:])
-                else:
-                    if not isinstance(r.post_conv, Callable):
-                        pass
-                    return r.post_conv(val)
-            return val
-        except ValueError as err:
-            raise ConversionError(key, regs, str(err)) from err
+        if r.post_conv:
+            if isinstance(r.post_conv, tuple):
+                return r.post_conv[0](val, *r.post_conv[1:])
+            else:
+                if not isinstance(r.post_conv, Callable):
+                    pass
+                return r.post_conv(val)
+        return val
 
-    # This gets invoked during pydoc or similar by a bit of python voodoo.
-    # Inverter and Battery use util.DynamicDoc as a metaclass, and
-    # that defines __doc__ as a property which ends up in here.
     @classmethod
-    def _gendoc(cls):
-        """"Construct a docstring from fixed prefix and register list."""
+    def to_fields(cls) -> dict[str, tuple[Any, None]]:
+        """Determine a pydantic fields definition for the class."""
 
-        doc = cls._DOC + dedent(
-        """
+        def infer_return_type(obj: Any):
+            if hasattr(obj, "__annotations__") and (
+                ret := obj.__annotations__.get("return", None)
+            ):
+                return ret
+            return obj  # assume it is a class/type already?
 
-        The following list of attributes was automatically generated from the
-        register definition list. They are fabricated at runtime via ``__getattr__``.
-        Note that the actual set of registers available depends on the inverter
-        model - accessing a register that doesn't exist will return ``None``.
+        def return_type(v: RegisterDefinition):
+            if v.post_conv:
+                if isinstance(v.post_conv, tuple):
+                    return infer_return_type(v.post_conv[0])
+                else:
+                    return infer_return_type(v.post_conv)
+            elif v.pre_conv:
+                if isinstance(v.pre_conv, tuple):
+                    return infer_return_type(v.pre_conv[0])
+                else:
+                    return infer_return_type(v.pre_conv)
+            return Any
 
-        Because these attributes are not listed in ``__dict__`` they may not be
-        visible to all python tools.
-        Some appear multiple times as aliases.\n\n"""
-        )
+        register_fields = {
+            k: (return_type(v), None) for k, v in cls.REGISTER_LUT.items()
+        }
 
-        for reg in cls.REGISTER_LUT.keys():
-            doc += '* ' + reg + "\n"
-        return doc
+        return register_fields
 
 
 class RegisterEncoder(JSONEncoder):
