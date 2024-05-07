@@ -33,6 +33,20 @@ class Model(StrEnum):
     def _missing_(cls, value):
         """Pick model from the first digit of the device type code."""
         return cls(value[0])
+    
+    @classmethod
+    def add_regs(cls, value):
+        """Return possible additional registers."""
+        regs={
+            '2': ([],[180,240,300,360]),    #Hybrid
+            '3': ([],[180,240,300,360]),    #AC
+            '4': ([1000,1060,1120,1180,1240,1300,1360],[1000,1120]),   #"Hybrid - 3ph"
+            '5': ([2040],[2040]),   #EMS
+            '6': ([1000,1060,1120,1180,1240,1300,1360],[1000,1120]),   #AC - 3ph
+            '7': ([1600,1660,1720,1780,1840],[180,240,300,360]),   #Gateway
+            '8': ([],[180,240,300,360]),   #All in One
+        }
+        return regs.get(value)
 
 
 class Generation(StrEnum):
@@ -71,6 +85,10 @@ class BatteryPowerMode(IntEnum):
     EXPORT = 0
     SELF_CONSUMPTION = 1
 
+    @classmethod
+    def _missing_(cls, value):
+        """Default to 0."""
+        return cls(0)
 
 class BatteryCalibrationStage(IntEnum):
     """Battery calibration stages."""
@@ -84,6 +102,11 @@ class BatteryCalibrationStage(IntEnum):
     SET_FULL_CAPACITY = 6
     FINISH = 7
 
+    @classmethod
+    def _missing_(cls, value):
+        """Default to 0."""
+        return cls(0)
+
 
 class MeterType(IntEnum):
     """Installed meter type."""
@@ -91,12 +114,22 @@ class MeterType(IntEnum):
     CT_OR_EM418 = 0
     EM115 = 1
 
+    @classmethod
+    def _missing_(cls, value):
+        """Default to 0."""
+        return cls(0)
+
 
 class BatteryType(IntEnum):
     """Installed battery type."""
 
     LEAD_ACID = 0
     LITHIUM = 1
+
+    @classmethod
+    def _missing_(cls, value):
+        """Default to 0."""
+        return cls(0)
 
 
 class BatteryPauseMode(IntEnum):
@@ -106,6 +139,11 @@ class BatteryPauseMode(IntEnum):
     PAUSE_CHARGE = 1
     PAUSE_DISCHARGE = 2
     PAUSE_BOTH = 3
+
+    @classmethod
+    def _missing_(cls, value):
+        """Default to 0."""
+        return cls(0)
 
 
 class PowerFactorFunctionModel(IntEnum):
@@ -483,15 +521,6 @@ class Inverter(RegisterGetter, metaclass=DynamicDoc):
         #
     }
 
-    # @computed('p_pv')
-    # def compute_p_pv(p_pv1: int, p_pv2: int, **kwargs) -> int:
-    #     """Computes the discharge slot 2."""
-    #     return p_pv1 + p_pv2
-
-    # @computed('e_pv_day')
-    # def compute_e_pv_day(e_pv1_day: float, e_pv2_day: float, **kwargs) -> float:
-    #     """Computes the discharge slot 2."""
-    #     return e_pv1_day + e_pv2_day
 
     @classmethod
     def lookup_writable_register(cls, name: str, value: Optional[int] = None):

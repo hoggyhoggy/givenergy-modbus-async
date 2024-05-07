@@ -2,6 +2,12 @@
 import logging
 
 from .battery import Battery
+from .hvbcu import Battery as HVBCU
+from .hvbmu import Battery as HVBattery
+from .ems import Ems
+from .gateway import Gateway
+from .threephase import ThreePhase
+
 from .inverter import Inverter
 from .register import HR, IR
 from .register_cache import (
@@ -96,9 +102,22 @@ class Plant:
         return Inverter(self.register_caches[0x32])
 
     @property
-    def batteries(self) -> list[Battery]:
-        """Return Battery models for the Plant."""
-        return [
-            Battery(self.register_caches[i + 0x32])
-            for i in range(self.number_batteries)
-        ]
+    def batteries(self): # -> list[Battery]:
+        """Return LV Battery models for the Plant."""
+        if self.isHV:
+            return [
+                HVBattery.from_orm(self.register_caches[i + 0x50])
+                for i in range(self.number_batteries)
+            ]
+        else:
+            return [
+                Battery.from_orm(self.register_caches[i + 0x32])
+                for i in range(self.number_batteries)
+            ]
+    @property
+    def bcu(self) -> list[HVBCU]:
+        """Return HV Battery models for the Plant."""
+        if 0x50 in self.register_caches.keys():
+            return HVBCU.from_orm(self.register_caches[0x70])
+        else:
+            return None
