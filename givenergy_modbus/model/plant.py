@@ -2,13 +2,13 @@
 import logging
 
 from .battery import Battery
-from .hvbcu import Battery as HVBCU
-from .hvbmu import Battery as HVBattery
-from .ems import Ems
+from .hvbcu import BCU
+from .hvbmu import BMU
+from .ems import EMS
 from .gateway import Gateway
-from .threephase import ThreePhase
+from .threephase import ThreePhaseInverter
 
-from .inverter import Inverter
+from .inverter import Inverter, Model
 from .register import HR, IR
 from .register_cache import (
     RegisterCache,
@@ -29,13 +29,17 @@ class Plant:
     """Representation of a complete GivEnergy plant."""
 
     register_caches: dict[int, RegisterCache] = {}
+    additional_holding_registers: list[int] = []
+    additional_input_registers: list[int] = []
     inverter_serial_number: str = ""
     data_adapter_serial_number: str = ""
     number_batteries: int = 0
+    slave_address: int = 0x31
+    isHV: bool = True
 
     def __init__(self) -> None:
         if not self.register_caches:
-            self.register_caches = {0x32: RegisterCache()}
+            self.register_caches = {self.slave_address: RegisterCache()}
 
     def update(self, pdu: ClientIncomingMessage):
         """Update the Plant state from a PDU message."""
@@ -52,7 +56,7 @@ class Plant:
 
         if pdu.slave_address in (0x11, 0x00):
             # rewrite cloud and mobile app responses to "normal" inverter address
-            slave_address = 0x32
+            slave_address = self.slave_address
         else:
             slave_address = pdu.slave_address
 
@@ -87,37 +91,57 @@ class Plant:
         Since we attempt to decode register data in the process, it's possible for an
         exception to be raised.
         """
+        if self.inverter.model==Model.EMS or self.inverter.model==Model.GATEWAY:
+            self.number_batteries=0
+            return
         i = 0
         for i in range(6):
             try:
-                assert Battery(self.register_caches[i + 0x32]).is_valid()
+                if self.isHV:
+                    assert BMU(self.register_caches[i + 0x50]).is_valid()
+                else:
+                    assert Battery(self.register_caches[i + 0x32]).is_valid()
             except (KeyError, AssertionError):
                 break
-        _logger.debug("Updating connected battery count to %d", i)
         self.number_batteries = i
 
     @property
     def inverter(self) -> Inverter:
         """Return Inverter model for the Plant."""
-        return Inverter(self.register_caches[0x32])
+        return Inverter(self.register_caches[self.slave_address])
+    
+    @property
+    def threephaseinverter(self) -> Inverter:
+        """Return 3ph Inverter model for the Plant."""
+        return ThreePhaseInverter(self.register_caches[self.slave_address])
+    
+    @property
+    def ems(self) -> EMS:
+        """Return EMS model for the Plant."""
+        return EMS(self.register_caches[self.slave_address])
+    
+    @property
+    def gateway(self) -> Gateway:
+        """Return Gateway model for the Plant."""
+        return Gateway(self.register_caches[self.slave_address])
 
     @property
-    def batteries(self): # -> list[Battery]:
+    def batteries(self) -> list[Battery]:
         """Return LV Battery models for the Plant."""
         if self.isHV:
             return [
-                HVBattery.from_orm(self.register_caches[i + 0x50])
+                BMU(self.register_caches[i + 0x50])
                 for i in range(self.number_batteries)
             ]
         else:
             return [
-                Battery.from_orm(self.register_caches[i + 0x32])
+                Battery(self.register_caches[i + 0x32])
                 for i in range(self.number_batteries)
             ]
     @property
-    def bcu(self) -> list[HVBCU]:
+    def bcu(self) -> list[BCU]:
         """Return HV Battery models for the Plant."""
         if 0x50 in self.register_caches.keys():
-            return HVBCU.from_orm(self.register_caches[0x70])
+            return BCU(self.register_caches[0x70])
         else:
             return None

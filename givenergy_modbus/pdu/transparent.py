@@ -24,7 +24,7 @@ class TransparentMessage(BasePDU, ABC):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.slave_address = kwargs.get("slave_address", 0x32)
+        self.slave_address = kwargs.get("slave_address", 0x31)
         self.error = kwargs.get("error", False)
         self.padding = kwargs.get("padding", 0x08)  # this does seem significant
         self.check = kwargs.get("check", 0x0000)

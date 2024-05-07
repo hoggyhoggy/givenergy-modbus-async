@@ -29,7 +29,7 @@ class UsbDevice(IntEnum):
     UNKNOWN = 257
 
 
-class BatteryModule(RegisterGetter, metaclass=DynamicDoc):
+class BMU(RegisterGetter, metaclass=DynamicDoc):
     # pylint: disable=missing-class-docstring
     # The metaclass turns accesses to __doc__ into calls to
     # _gendoc()  (which we inherit from RegisterGetter)

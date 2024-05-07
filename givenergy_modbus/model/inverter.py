@@ -505,8 +505,6 @@ class Inverter(RegisterGetter, metaclass=DynamicDoc):
         "temp_battery": Def(C.deci, None, IR(56)),
         "i_grid_port": Def(C.centi, None, IR(58)),
         "battery_percent": Def(C.uint16, None, IR(59)),
-        "e_battery_discharge_total": Def(C.deci, None, IR(105)),
-        "e_battery_charge_total": Def(C.deci, None, IR(106)),
         "e_battery_discharge_total2": Def(C.deci, None, HR(180)),
         "e_battery_charge_total2": Def(C.deci, None, IR(181)),
         "e_battery_discharge_today2": Def(C.deci, None, IR(182)),

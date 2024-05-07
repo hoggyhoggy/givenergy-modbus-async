@@ -22,10 +22,28 @@ class Converter:
     """Type of data register represents. Encoding is always big-endian."""
 
     @staticmethod
+    def nominal_frequency(option: int) -> Optional[int]:
+        """Determine max inverter power from device_type_code."""
+        frequency = [50,60]
+        return frequency[option]
+    
+    @staticmethod
+    def nominal_voltage(option: int) -> Optional[int]:
+        """Determine max inverter power from device_type_code."""
+        voltage = [230,208,240]
+        return voltage[option]
+
+    @staticmethod
     def uint16(val: int) -> int:
         """Simply return the raw unsigned 16-bit integer register value."""
         if val is not None:
             return int(val)
+
+    @staticmethod
+    def gateway_version(first: int,second: int,third: int,fourth: int,) -> Optional[str]:
+        """Return Gateway software ID."""
+        gwversion=bytearray.fromhex(hex(first)[2:]).decode()+bytearray.fromhex(hex(second)[2:]).decode()+str(third).zfill(2)+str(fourth).zfill(2)
+        return gwversion
 
     @staticmethod
     def int16(val: int) -> int:
@@ -60,6 +78,12 @@ class Converter:
         if val is not None:
             return bool(val)
         return None
+
+    @staticmethod
+    def bitfield(val: int, low: int, high: int) -> int:
+        """Return int of binary string from range requested in input as binary string"""
+        res=int(format(val,'016b')[low:high+1],2)
+        return res
 
     @staticmethod
     def string(*vals: int) -> Optional[str]:
