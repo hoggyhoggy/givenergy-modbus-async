@@ -3,9 +3,9 @@ from typing import Any, Optional
 
 import pytest
 
-from givenergy_modbus.exceptions import ExceptionBase, InvalidFrame
-from givenergy_modbus.model.register import HR
-from givenergy_modbus.pdu import (
+from givenergy_modbus_async.exceptions import ExceptionBase, InvalidFrame
+from givenergy_modbus_async.model.register import HR
+from givenergy_modbus_async.pdu import (
     BasePDU,
     ClientIncomingMessage,
     ClientOutgoingMessage,

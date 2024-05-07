@@ -1,8 +1,8 @@
 import logging
 from abc import ABC
 
-from givenergy_modbus.codec import PayloadDecoder
-from givenergy_modbus.pdu.base import (
+from codec import PayloadDecoder
+from pdu.base import (
     BasePDU,
     ClientIncomingMessage,
     ClientOutgoingMessage,
@@ -24,7 +24,7 @@ class TransparentMessage(BasePDU, ABC):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.slave_address = kwargs.get("slave_address", 0x32)
+        self.slave_address = kwargs.get("slave_address", 0x31)
         self.error = kwargs.get("error", False)
         self.padding = kwargs.get("padding", 0x08)  # this does seem significant
         self.check = kwargs.get("check", 0x0000)
@@ -133,7 +133,7 @@ class TransparentRequest(TransparentMessage, ClientOutgoingMessage, ABC):
     def lookup_transparent_function_decoder(
         cls, transparent_function_code: int
     ) -> type["TransparentRequest"]:
-        from givenergy_modbus.pdu import (
+        from pdu import (
             ReadBatteryInputRegistersRequest,
             ReadHoldingRegistersRequest,
             ReadInputRegistersRequest,
@@ -175,7 +175,7 @@ class TransparentResponse(TransparentMessage, ClientIncomingMessage, ABC):
     def lookup_transparent_function_decoder(
         cls, transparent_function_code: int
     ) -> type["TransparentResponse"]:
-        from givenergy_modbus.pdu import (
+        from pdu import (
             NullResponse,
             ReadHoldingRegistersResponse,
             ReadInputRegistersResponse,

@@ -6,7 +6,7 @@ from typing import Any, Callable, Optional, Union
 
 from pydantic.utils import GetterDict
 
-from givenergy_modbus.model import TimeSlot
+from givenergy_modbus_async.model import TimeSlot
 
 
 class Converter:
@@ -38,12 +38,17 @@ class Converter:
         """Combine two registers into an unsigned 32-bit int."""
         if high_val is not None and low_val is not None:
             return (high_val << 16) + low_val
+        
+    def bitfield(val: int, low: int, high: int) -> int:
+        """Return int of binary string from range requested in input as binary string"""
+        res=int(format(val,'016b')[low:high+1],2)
+        return res
 
     @staticmethod
     def timeslot(start_time: int, end_time: int) -> TimeSlot:
         """Interpret register as a time slot."""
         if start_time is not None and end_time is not None:
-            return TimeSlot.from_repr(start_time, end_time)
+            return TimeSlot.from_repr(start_time, end_time)   
 
     @staticmethod
     def bool(val: int) -> bool:
@@ -78,6 +83,12 @@ class Converter:
             return f"D0.{dsp_version}-A0.{arm_version}"
 
     @staticmethod
+    def gateway_version(first: int,second: int,third: int,fourth: int,) -> Optional[str]:
+        """Return Gateway software ID."""
+        gwversion=bytearray.fromhex(hex(first)[2:]).decode()+bytearray.fromhex(hex(second)[2:]).decode()+str(third).zfill(2)+str(fourth).zfill(2)
+        return gwversion
+
+    @staticmethod
     def inverter_max_power(device_type_code: str) -> Optional[int]:
         """Determine max inverter power from device_type_code."""
         dtc_to_power = {
@@ -90,9 +101,22 @@ class Converter:
             "4002": 8000,
             "4003": 10000,
             "4004": 11000,
+            "5001": 5000,
             "8001": 6000,
         }
         return dtc_to_power.get(device_type_code)
+    
+    @staticmethod
+    def nominal_frequency(option: int) -> Optional[int]:
+        """Determine max inverter power from device_type_code."""
+        frequency = [50,60]
+        return frequency[option]
+    
+    @staticmethod
+    def nominal_voltage(option: int) -> Optional[int]:
+        """Determine max inverter power from device_type_code."""
+        voltage = [230,208,240]
+        return voltage[option]
 
     @staticmethod
     def hex(val: int, width: int = 4) -> str:
@@ -121,6 +145,12 @@ class Converter:
     @staticmethod
     def datetime(year, month, day, hour, min, sec) -> Optional[datetime]:
         """Compose a datetime from 6 registers."""
+        if 0>year>999: year=0 #try to get rid of the spurious year error
+        if 0>month>12: month=0 #try to get rid of the spurious year error
+        if 0>day>31: day=1
+        if 0>hour>23: hour=0 #try to get rid of the spurious hour error
+        if 0>min>60: min=0 #try to get rid of the spurious hour error
+        if 0>sec>60: sec=0 #try to get rid of the spurious hour error
         if None not in [year, month, day, hour, min, sec]:
             return datetime(year + 2000, month, day, hour, min, sec)
         return None

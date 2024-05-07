@@ -1,5 +1,5 @@
-from givenergy_modbus.model.battery import Battery, UsbDevice
-from givenergy_modbus.model.register_cache import RegisterCache
+from givenergy_modbus_async.model.battery import Battery, UsbDevice
+from givenergy_modbus_async.model.register_cache import RegisterCache
 
 
 def test_from_registers(register_cache):

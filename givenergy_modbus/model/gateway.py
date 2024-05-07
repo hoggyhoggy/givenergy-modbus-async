@@ -14,44 +14,17 @@ from givenergy_modbus_async.model.register import (
     RegisterGetter,
 )
 
-class PVInputMode(IntEnum):
-    INDEPENDENT = 0
-    ONE_BY_ONE = 1
+class BatteryPauseMode(IntEnum):
+    """Battery pause mode."""
+
+    DISABLED = 0
+    PAUSE_CHARGE = 1
+    PAUSE_DISCHARGE = 2
+    PAUSE_BOTH = 3
     @classmethod
     def _missing_(cls, value):
         """Default to 0."""
         return cls(0)
-    
-class Model(StrEnum):
-    """Known models of inverters."""
-
-    HYBRID = "2"
-    AC = "3"
-    HYBRID_3PH = "4"
-    AC_3PH = "6"
-    EMS = "5"
-    GATEWAY = "7"
-    ALL_IN_ONE = "8"
-
-    @classmethod
-    def _missing_(cls, value):
-        """Pick model from the first digit of the device type code."""
-        return cls(value[0])
-    
-    @classmethod
-    def add_regs(cls, value):
-        """Return possible additional registers."""
-        regs={
-            '2': ([],[180,240,300,360]),    #Hybrid
-            '3': ([],[180,240,300,360]),    #AC
-            '4': ([1000,1060,1120,1180,1240,1300,1360],[1000,1120]),   #"Hybrid - 3ph"
-            '5': ([2040],[2040]),   #EMS
-            '6': ([1000,1060,1120,1180,1240,1300,1360],[1000,1120]),   #AC - 3ph
-            '7': ([1600,1660,1720,1780,1840],[180,240,300,360]),   #Gateway
-            '8': ([],[180,240,300,360]),   #All in One
-        }
-        return regs.get(value)
-    
 
 class Generation(StrEnum):
     """Known Generations"""
@@ -74,13 +47,50 @@ class Generation(StrEnum):
         else:
             return cls.GEN1
 
+class Model(StrEnum):
+    """Known models of inverters."""
 
-class UsbDevice(IntEnum):
-    """USB devices that can be inserted into inverters."""
+    HYBRID = "2"
+    AC = "3"
+    HYBRID_3PH = "4"
+    AC_3PH = "6"
+    EMS = "5"
+    GATEWAY = "7"
+    ALL_IN_ONE = "8"
 
-    NONE = 0
-    WIFI = 1
-    DISK = 2
+    @classmethod
+    def _missing_(cls, value):
+        """Pick model from the first digit of the device type code."""
+        return cls(value[0])
+
+class Status(IntEnum):
+    """Inverter status."""
+
+    WAITING = 0
+    NORMAL = 1
+    WARNING = 2
+    FAULT = 3
+    FLASHING_FIRMWARE_UPDATE = 4
+    @classmethod
+    def _missing_(cls, value):
+        """Default to 0."""
+        return cls(0)
+    
+class State(IntEnum):
+    """Inverter status."""
+
+    STATIC = 0
+    CHARGE = 1
+    DISCHARGE = 2
+    @classmethod
+    def _missing_(cls, value):
+        """Default to 0."""
+        return cls(0)
+
+class MeterStatus(IntEnum):
+    DISABLED = 0
+    ONLINE = 1
+    OFFLINE = 2
     @classmethod
     def _missing_(cls, value):
         """Default to 0."""
@@ -112,7 +122,6 @@ class BatteryCalibrationStage(IntEnum):
         """Default to 0."""
         return cls(0)
 
-
 class MeterType(IntEnum):
     """Installed meter type."""
 
@@ -133,41 +142,13 @@ class BatteryType(IntEnum):
         """Default to 0."""
         return cls(0)
 
-class BatteryPauseMode(IntEnum):
-    """Battery pause mode."""
 
-    DISABLED = 0
-    PAUSE_CHARGE = 1
-    PAUSE_DISCHARGE = 2
-    PAUSE_BOTH = 3
-    @classmethod
-    def _missing_(cls, value):
-        """Default to 0."""
-        return cls(0)
+class UsbDevice(IntEnum):
+    """USB devices that can be inserted into inverters."""
 
-class PowerFactorFunctionModel(IntEnum):
-    """Power Factor function model."""
-
-    PF_1 = 0
-    PF_BY_SET = 1
-    DEFAULT_PF_LINE = 2
-    USER_PF_LINE = 3
-    UNDER_EXCITED_INDUCTIVE_REACTIVE_POWER = 4
-    OVER_EXCITED_CAPACITIVE_REACTIVE_POWER = 5
-    QV_MODEL = 6
-    @classmethod
-    def _missing_(cls, value):
-        """Default to 0."""
-        return cls(0)
-
-class Status(IntEnum):
-    """Inverter status."""
-
-    WAITING = 0
-    NORMAL = 1
-    WARNING = 2
-    FAULT = 3
-    FLASHING_FIRMWARE_UPDATE = 4
+    NONE = 0
+    WIFI = 1
+    DISK = 2
     @classmethod
     def _missing_(cls, value):
         """Default to 0."""
@@ -205,7 +186,7 @@ class InverterRegisterGetter(RegisterGetter):
         "enable_60hz_freq_mode": Def(C.bool, None, HR(28)),
         "soc_force_adjust": Def(C.uint16, BatteryCalibrationStage, HR(29)),
         "modbus_address": Def(C.uint16, None, HR(30)),
-        #"charge_slot_2": Def(C.timeslot, None, HR(31), HR(32)),
+        "charge_slot_2": Def(C.timeslot, None, HR(31), HR(32)),
         "user_code": Def(C.uint16, None, HR(33)),
         "modbus_version": Def(C.centi, (C.fstr, "0.2f"), HR(34)),
         "system_time": Def(C.datetime, None, HR(35), HR(36), HR(37), HR(38), HR(39), HR(40)),
@@ -254,31 +235,6 @@ class InverterRegisterGetter(RegisterGetter):
         "charge_soc_stop_2": Def(C.uint16, None, HR(117)),
         "discharge_soc_stop_2": Def(C.uint16, None, HR(118)),
         "charge_soc_stop_1": Def(C.uint16, None, HR(119)),
-        #
-        # Holding Registers, block 120-179
-        #
-        "discharge_soc_stop_1": Def(C.uint16, None, HR(120)),
-        "enable_local_command_test": Def(C.bool, None, HR(121)),
-        "power_factor_function_model": Def(C.uint16, PowerFactorFunctionModel, HR(122)),
-        "frequency_load_limit_rate": Def(C.uint16, None, HR(123)),
-        "enable_low_voltage_fault_ride_through": Def(C.bool, None, HR(124)),
-        "enable_frequency_derating": Def(C.bool, None, HR(125)),
-        "enable_above_6kw_system": Def(C.bool, None, HR(126)),
-        "start_system_auto_test": Def(C.bool, None, HR(127)),
-        "enable_spi": Def(C.bool, None, HR(128)),
-        # skip PF configuration and protection settings 129-166
-        "inverter_reboot": Def(C.uint16, None, HR(163)),
-        "threephase_balance_mode": Def(C.uint16, None, HR(167)),
-        "threephase_abc": Def(C.uint16, None, HR(168)),
-        "threephase_balance_1": Def(C.uint16, None, HR(169)),
-        "threephase_balance_2": Def(C.uint16, None, HR(170)),
-        "threephase_balance_3": Def(C.uint16, None, HR(171)),
-        # HR(172-174) unused
-        "enable_battery_on_pv_or_grid": Def(C.bool, None, HR(175)),
-        "debug_inverter": Def(C.uint16, None, HR(176)),
-        "enable_ups_mode": Def(C.bool, None, HR(177)),
-        "enable_g100_limit_switch": Def(C.bool, None, HR(178)),
-        "enable_battery_cable_impedance_alarm": Def(C.bool, None, HR(179)),
         #
         # Holding Registers, block 180-239
         #
@@ -330,75 +286,83 @@ class InverterRegisterGetter(RegisterGetter):
         "battery_discharge_limit_ac": Def(C.uint16, None, HR(314)),
         "battery_pause_mode": Def(C.uint16, BatteryPauseMode, HR(318)),
         "battery_pause_slot_1": Def(C.timeslot, None, HR(319), HR(320)),
+
         #
-        # Input Registers, block 0-59
+        # Input Registers, block 1600-1640
         #
-        "status": Def(C.uint16, Status, IR(0)),
-        "v_pv1": Def(C.deci, None, IR(1)),
-        "v_pv2": Def(C.deci, None, IR(2)),
-        "v_p_bus": Def(C.deci, None, IR(3)),
-        "v_n_bus": Def(C.deci, None, IR(4)),
-        "v_ac1": Def(C.deci, None, IR(5)),
-        "e_battery_throughput_total": Def(C.uint32, C.deci, IR(6), IR(7)),
-        "i_pv1": Def(C.deci, None, IR(8)),
-        "i_pv2": Def(C.deci, None, IR(9)),
-        "i_ac1": Def(C.deci, None, IR(10)),
-        "e_pv_total": Def(C.uint32, C.deci, IR(11), IR(12)),
-        "f_ac1": Def(C.centi, None, IR(13)),
-        "v_highbrigh_bus": Def(C.deci, None, IR(15)), ##HV Bus??? (from Givtcp?)       
-        "e_pv1_day": Def(C.deci, None, IR(17)),
-        "p_pv1": Def(C.uint16, None, IR(18)),
-        "e_pv2_day": Def(C.deci, None, IR(19)),
-        "p_pv2": Def(C.uint16, None, IR(20)),
-        "e_grid_out_total": Def(C.uint32, C.deci, IR(21), IR(22)),
-        "e_solar_diverter": Def(C.deci, None, IR(23)),
-        "p_inverter_out": Def(C.int16, None, IR(24)),
-        "e_grid_out_day": Def(C.deci, None, IR(25)),
-        "e_grid_in_day": Def(C.deci, None, IR(26)),
-        "e_inverter_in_total": Def(C.uint32, C.deci, IR(27), IR(28)),
-        "e_discharge_year": Def(C.deci, None, IR(29)),
-        "p_grid_out": Def(C.int16, None, IR(30)),
-        "p_eps_backup": Def(C.uint16, None, IR(31)),
-        "e_grid_in_total": Def(C.uint32, C.deci, IR(32), IR(33)),
-        "e_inverter_in_day": Def(C.deci, None, IR(35)),
-        "e_battery_charge_today": Def(C.deci, None, IR(36)),
-        "e_battery_discharge_today": Def(C.deci, None, IR(37)),
-        "inverter_countdown": Def(C.uint16, None, IR(38)),
-        # FAULT_CODE_H = (39, {'type': T_BITFIELD})
-        # FAULT_CODE_L = (40, {'type': T_BITFIELD})
-        "temp_inverter_heatsink": Def(C.deci, None, IR(41)),
-        "p_load_demand": Def(C.uint16, None, IR(42)),
-        "p_grid_apparent": Def(C.uint16, None, IR(43)),
-        "e_inverter_out_day": Def(C.deci, None, IR(44)),
-        "e_inverter_out_total": Def(C.uint32, C.deci, IR(45), IR(46)),
-        "work_time_total": Def(C.uint32, None, IR(47), IR(48)),
-        "system_mode": Def(C.uint16, None, IR(49)),
-        "v_battery": Def(C.centi, None, IR(50)),
-        "i_battery": Def(C.int16, C.centi, None, IR(51)),
-        "p_battery": Def(C.int16, None, IR(52)),
-        "v_eps_backup": Def(C.deci, None, IR(53)),
-        "f_eps_backup": Def(C.centi, None, IR(54)),
-        "temp_charger": Def(C.deci, None, IR(55)),
-        "temp_battery": Def(C.deci, None, IR(56)),
-        "i_grid_port": Def(C.centi, None, IR(58)),
-        "battery_percent": Def(C.uint16, None, IR(59)),
-        "e_battery_discharge_total": Def(C.deci, None, IR(105)),
-        "e_battery_charge_total": Def(C.deci, None, IR(106)),
-        "e_battery_discharge_total2": Def(C.deci, None, HR(180)),
-        "e_battery_charge_total2": Def(C.deci, None, IR(181)),
-        "e_battery_discharge_today2": Def(C.deci, None, IR(182)),
-        "e_battery_charge_today2": Def(C.deci, None, IR(183)),
+
+
+        
+        "software_version": Def(C.gateway_version, None, IR(1600),IR(1601),IR(1602),IR(1603)),
+        "work_mode": Def(C.uint16, None, IR(1604)),
+        #"system_enable": Def(C.uint16, None, IR(1605)),
+        #"do_state": Def(C.string, None, IR(1606)),
+        #"di_state": Def(C.string, None, IR(1607)),
+        "v_grid": Def(C.int16, C.deci, IR(1608)),
+        "i_grid": Def(C.int16, C.deci, IR(1609)),
+        "v_load": Def(C.deci, None, IR(1610)),
+        "i_load": Def(C.deci, None, IR(1611)),
+        "i_inverter": Def(C.int16, C.deci, IR(1612)),
+        "p_ac1": Def(C.int16, None, IR(1616)),
+        "p_pv": Def(C.uint16, None, IR(1617)),
+        "p_load": Def(C.uint16, None, IR(1618)),
+        "p_liberty": Def(C.int16, None, IR(1619)),
+        "fault_protection": Def(C.uint32, None, IR(1620),IR(1621)),
+        "fault_warning": Def(C.uint32, None, IR(1622),IR(1623)),
+        "v_grid_relay": Def(C.deci, None, IR(1624)),
+        "v_inverter_relay": Def(C.deci, None, IR(1625)),
+        "first_inverter_serial_number": Def(C.string, None, IR(1627),IR(1628),IR(1629),IR(1630),IR(1631)),
+        "e_grid_import_today": Def(C.deci, None, IR(1640)),
+        "e_grid_import_total": Def(C.uint32, C.deci, IR(1641),IR(1642)),
+        "e_pv_today": Def(C.deci, None, IR(1643)),
+        "e_pv_total": Def(C.uint32, C.deci, IR(1644),IR(1645)),
+        "e_grid_export_today": Def(C.deci, None, IR(1646)),
+        "e_grid_export_total": Def(C.uint32, C.deci, IR(1647),IR(1648)),
+        "e_load_today": Def(C.deci, None, IR(1655)),
+        "e_load_total": Def(C.uint32, C.deci, IR(1656),IR(1657)),
+    ## BATTERY / AIO Total?
+        "e_aio_charge_today": Def(C.deci, None, IR(1649)),
+        "e_aio_charge_total": Def(C.uint32, C.deci, IR(1650),IR(1651)),
+        "e_aio_discharge_today": Def(C.deci, None, IR(1652)),
+        "e_aio_discharge_total": Def(C.uint32, C.deci, IR(1653),IR(1654)),
+        "p_aio_total": Def(C.int16, None, IR(1702)),
+        "aio_state": Def(C.uint16, State, IR(1703)),
+        "battery_firmware_version": Def(C.int16, None, IR(1704)),
+    ## AIO - 1
+        "e_aio1_charge_today": Def(C.deci, None, IR(1705)),
+        "e_aio1_charge_total": Def(C.uint32, C.deci, IR(1706),IR(1707)),
+        "e_aio1_discharge_today": Def(C.deci, None, IR(1750)),
+        "e_aio1_discharge_total": Def(C.uint32, C.deci, IR(1751),IR(1752)),
+        "aio1_soc": Def(C.uint16, None, IR(1801)),
+        "p_aio1_inverter": Def(C.int16, None, IR(1816)),
+        "aio1_serial_number": Def(C.string, None, IR(1831), IR(1832), IR(1833), IR(1834), IR(1835)),
+    ## AIO - 2
+        "e_aio2_charge_today": Def(C.deci, None, IR(1708)),
+        "e_aio2_charge_total": Def(C.uint32, C.deci, IR(1709),IR(1710)),
+        "e_aio2_discharge_today": Def(C.deci, None, IR(1753)),
+        "e_aio2_discharge_total": Def(C.uint32, C.deci, IR(1754),IR(1755)),
+        "aio2_soc": Def(C.uint16, None, IR(1802)),
+        "p_aio2_inverter": Def(C.int16, None, IR(1817)),
+        "aio2_serial_number": Def(C.string, None, IR(1838), IR(1839), IR(1840), IR(1841), IR(1842)),
+    ## AIO - 3
+        "e_aio3_charge_today": Def(C.deci, None, IR(1711)),
+        "e_aio3_charge_total": Def(C.uint32, C.deci, IR(1712),IR(1713)),
+        "e_aio3_discharge_today": Def(C.deci, None, IR(1756)),
+        "e_aio3_discharge_total": Def(C.uint32, C.deci, IR(1757),IR(1758)),
+        "aio3_soc": Def(C.uint16, None, IR(1803)),
+        "p_aio3_inverter": Def(C.int16, None, IR(1818)),
+        "aio3_serial_number": Def(C.string, None, IR(1845), IR(1846), IR(1847), IR(1848), IR(1849)),
+
+        "parallel_aio_num": Def(C.uint16, None, IR(1700)),
+        "parallel_aio_online_num": Def(C.uint16, None, IR(1701)),
+
+
+    ## Battery
+        "e_battery_charge_today": Def(C.deci, None, IR(1795)),
+        "e_battery_charge_total": Def(C.uint32, C.deci, IR(1796),IR(1797)),
+        "e_battery_discharge_today": Def(C.deci, None, IR(1798)),
+        "e_battery_discharge_total": Def(C.uint32, C.deci, IR(1799),IR(1800)),
     }
-
-    # @computed('p_pv')
-    # def compute_p_pv(p_pv1: int, p_pv2: int, **kwargs) -> int:
-    #     """Computes the discharge slot 2."""
-    #     return p_pv1 + p_pv2
-
-    # @computed('e_pv_day')
-    # def compute_e_pv_day(e_pv1_day: float, e_pv2_day: float, **kwargs) -> float:
-    #     """Computes the discharge slot 2."""
-    #     return e_pv1_day + e_pv2_day
 
 
 class InverterConfig(BaseConfig):
@@ -407,54 +371,7 @@ class InverterConfig(BaseConfig):
     orm_mode = True
     getter_dict = InverterRegisterGetter
 
-class Phase(StrEnum):
-    """Determine number of Phases."""
 
-    OnePhase= "Single Phase",
-    ThreePhase= "Three Phase",
-
-    __dtc_to_phases_lut__ = {
-        2: OnePhase,
-        3: OnePhase,
-        4: ThreePhase,
-        5: OnePhase,
-        6: ThreePhase,
-        7: OnePhase,
-        8: OnePhase,
-    }
-
-    @classmethod
-    def from_device_type_code(cls, device_type_code: str):
-        """Return the appropriate model from a given serial number."""
-        prefix = int(device_type_code[0])
-        if prefix in cls.__dtc_to_phases_lut__:
-            return cls.__dtc_to_phases_lut__[prefix]
-        else:
-            # raise UnknownModelError(f"Cannot determine model number from serial number {serial_number}")
-            return 'Unknown'   
-
-class InvertorPower(StrEnum):
-    """Map Invertor max power"""
-    __dtc_to_power_lut__ = {
-        '2001': 5000,
-        '2002': 4600,
-        '2003': 3600,
-        '3001': 3000,
-        '3002': 3600,
-        '4001': 6000,
-        '4002': 8000,
-        '4003': 10000,
-        '4004': 11000,
-        '8001': 6000
-    }
-    @classmethod
-    def from_dtc_power(cls, dtc: str):
-        """Return the appropriate model from a given serial number."""
-        if dtc in cls.__dtc_to_power_lut__:
-            return cls.__dtc_to_power_lut__[dtc]
-        else:
-            return 0
-
-Inverter = create_model(
-    "Inverter", __config__=InverterConfig, **InverterRegisterGetter.to_fields()
+Gateway = create_model(
+    "Gateway", __config__=InverterConfig, **InverterRegisterGetter.to_fields()
 )  # type: ignore[call-overload]

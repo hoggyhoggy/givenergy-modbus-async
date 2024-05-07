@@ -2,8 +2,8 @@ import datetime
 
 import pytest
 
-from givenergy_modbus.model import TimeSlot
-from givenergy_modbus.model.inverter import (
+from givenergy_modbus_async.model import TimeSlot
+from givenergy_modbus_async.model.inverter import (
     BatteryCalibrationStage,
     BatteryPowerMode,
     BatteryType,
@@ -14,7 +14,7 @@ from givenergy_modbus.model.inverter import (
     Status,
     UsbDevice,
 )
-from givenergy_modbus.model.register_cache import RegisterCache
+from givenergy_modbus_async.model.register_cache import RegisterCache
 
 
 def test_inverter():

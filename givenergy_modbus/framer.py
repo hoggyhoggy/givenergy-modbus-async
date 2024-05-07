@@ -3,8 +3,8 @@ from abc import ABC
 from collections.abc import AsyncIterator
 from typing import Callable, Optional, Type, Union
 
-from givenergy_modbus.exceptions import ExceptionBase, InvalidFrame, InvalidPduState
-from givenergy_modbus.pdu import BasePDU, ClientIncomingMessage, ServerIncomingMessage
+from givenergy_modbus_async.exceptions import ExceptionBase, InvalidFrame, InvalidPduState
+from givenergy_modbus_async.pdu import BasePDU, ClientIncomingMessage, ServerIncomingMessage
 
 _logger = logging.getLogger(__name__)
 

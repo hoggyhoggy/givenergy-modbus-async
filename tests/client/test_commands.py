@@ -1,10 +1,10 @@
 import arrow
 import pytest
 
-from givenergy_modbus.client import commands
-from givenergy_modbus.client.commands import RegisterMap
-from givenergy_modbus.model import TimeSlot
-from givenergy_modbus.pdu import WriteHoldingRegisterRequest
+from givenergy_modbus_async.client import commands
+from givenergy_modbus_async.client.commands import RegisterMap
+from givenergy_modbus_async.model import TimeSlot
+from givenergy_modbus_async.pdu import WriteHoldingRegisterRequest
 
 
 async def test_configure_charge_target():

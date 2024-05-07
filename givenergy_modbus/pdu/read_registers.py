@@ -1,14 +1,15 @@
 import logging
 from abc import ABC
+from crccheck.crc import CrcModbus
 
-from givenergy_modbus.codec import (
+from givenergy_modbus_async.codec import (
     PayloadDecoder,
     PayloadEncoder,
 )
-from givenergy_modbus.exceptions import (
+from givenergy_modbus_async.exceptions import (
     InvalidPduState,
 )
-from givenergy_modbus.pdu.transparent import (
+from givenergy_modbus_async.pdu.transparent import (
     TransparentMessage,
     TransparentRequest,
     TransparentResponse,
@@ -146,12 +147,14 @@ class ReadRegistersResponse(ReadRegistersMessage, TransparentResponse, ABC):
             and len(self.register_values) == 60
         ):
             count_known_bad_register_values = (
+                self.register_values[22] == 0x0101,
                 self.register_values[28] == 0x4C32,
+                self.register_values[29] == 0x279B, 
                 self.register_values[30] == 0xA119,
                 self.register_values[31] == 0x34EA,
                 self.register_values[32] == 0xE77F,
                 self.register_values[33] == 0xD475,
-                self.register_values[35] == 0x4500,
+                self.register_values[35] in (0x4500, 0x4CD0),
                 self.register_values[40] in (0xE4F9, 0xB619),
                 self.register_values[41] == 0xC0A8,
                 self.register_values[43] == 0xC0A8,

@@ -13,6 +13,11 @@ from givenergy_modbus_async.model.register import (
     RegisterGetter,
 )
 
+"""
+Adder: 0x50~0x6F
+Register start address = (Register base NO) + 120 *  (BAMS_Addr - 0x90)  * 32 + 120* (BCU_Addr - 0x70);
+"""
+
 
 class UsbDevice(IntEnum):
     """USB devices that can be inserted into batteries."""
@@ -43,42 +48,41 @@ class BatteryRegisterGetter(RegisterGetter):
         "v_cell_14": Def(DT.milli, None, IR(73)),
         "v_cell_15": Def(DT.milli, None, IR(74)),
         "v_cell_16": Def(DT.milli, None, IR(75)),
-        "t_cells_01_04": Def(DT.deci, None, IR(76)),
-        "t_cells_05_08": Def(DT.deci, None, IR(77)),
-        "t_cells_09_12": Def(DT.deci, None, IR(78)),
-        "t_cells_13_16": Def(DT.deci, None, IR(79)),
-        "v_cells_sum": Def(DT.milli, None, IR(80)),
-        "t_bms_mosfet": Def(DT.deci, None, IR(81)),
-        "v_out": Def(DT.uint32, DT.milli, IR(82), IR(83)),
-        "cap_calibrated": Def(DT.uint32, DT.centi, IR(84), IR(85)),
-        "cap_design": Def(DT.uint32, DT.centi, IR(86), IR(87)),
-        "cap_remaining": Def(DT.uint32, DT.centi, IR(88), IR(89)),
-        "status_1": Def((DT.duint8, 0), None, IR(90)),
-        "status_2": Def((DT.duint8, 1), None, IR(90)),
-        "status_3": Def((DT.duint8, 0), None, IR(91)),
-        "status_4": Def((DT.duint8, 1), None, IR(91)),
-        "status_5": Def((DT.duint8, 0), None, IR(92)),
-        "status_6": Def((DT.duint8, 1), None, IR(92)),
-        "status_7": Def((DT.duint8, 0), None, IR(93)),
-        "warning_1": Def((DT.duint8, 0), None, IR(94)),
-        "warning_2": Def((DT.duint8, 1), None, IR(94)),
-        # IR(95) unused
-        "num_cycles": Def(DT.uint16, None, IR(96)),
-        "num_cells": Def(DT.uint16, None, IR(97)),
-        "bms_firmware_version": Def(DT.uint16, None, IR(98)),
-        # IR(99) unused
-        "soc": Def(DT.uint16, None, IR(100)),
-        "cap_design2": Def(DT.uint32, DT.centi, IR(101), IR(102)),
-        "t_max": Def(DT.deci, None, IR(103)),
-        "t_min": Def(DT.deci, None, IR(104)),
-        # IR(105-109) unused
-        "e_battery_discharge_total": Def(DT.deci, None, IR(105)),
-        "e_battery_charge_total": Def(DT.deci, None, IR(106)),
+        "v_cell_17": Def(DT.milli, None, IR(76)),
+        "v_cell_18": Def(DT.milli, None, IR(77)),
+        "v_cell_19": Def(DT.milli, None, IR(78)),
+        "v_cell_20": Def(DT.milli, None, IR(79)),
+        "v_cell_21": Def(DT.milli, None, IR(80)),
+        "v_cell_22": Def(DT.milli, None, IR(81)),
+        "v_cell_23": Def(DT.milli, None, IR(82)),
+        "v_cell_24": Def(DT.milli, None, IR(83)),
+        "t_cell_01": Def(DT.deci, None, IR(90)),
+        "t_cell_02": Def(DT.deci, None, IR(91)),
+        "t_cell_03": Def(DT.deci, None, IR(92)),
+        "t_cell_04": Def(DT.deci, None, IR(93)),
+        "t_cell_05": Def(DT.deci, None, IR(94)),
+        "t_cell_06": Def(DT.deci, None, IR(95)),
+        "t_cell_07": Def(DT.deci, None, IR(96)),
+        "t_cell_08": Def(DT.deci, None, IR(97)),
+        "t_cell_09": Def(DT.deci, None, IR(98)),
+        "t_cell_10": Def(DT.deci, None, IR(99)),
+        "t_cell_11": Def(DT.deci, None, IR(100)),
+        "t_cell_12": Def(DT.deci, None, IR(101)),
+        "t_cell_13": Def(DT.deci, None, IR(102)),
+        "t_cell_14": Def(DT.deci, None, IR(103)),
+        "t_cell_15": Def(DT.deci, None, IR(104)),
+        "t_cell_16": Def(DT.deci, None, IR(105)),
+        "t_cell_17": Def(DT.deci, None, IR(106)),
+        "t_cell_18": Def(DT.deci, None, IR(107)),
+        "t_cell_19": Def(DT.deci, None, IR(108)),
+        "t_cell_20": Def(DT.deci, None, IR(109)),
+        "t_cell_21": Def(DT.deci, None, IR(110)),
+        "t_cell_22": Def(DT.deci, None, IR(111)),
+        "t_cell_23": Def(DT.deci, None, IR(112)),
+        "t_cell_24": Def(DT.deci, None, IR(113)),
         "serial_number": Def(
-            DT.string, None, IR(110), IR(111), IR(112), IR(113), IR(114)
+            DT.string, None, IR(114), IR(115), IR(116), IR(117), IR(118)
         ),
-        "usb_device_inserted": Def(DT.uint16, UsbDevice, IR(115)),
-        # IR(116-119) unused
     }
 
 
@@ -102,6 +106,7 @@ class Battery(_Battery):  # type: ignore[misc,valid-type]
         return self.serial_number not in (
             None,
             "",
+            " ",
             "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
             "          ",
         )

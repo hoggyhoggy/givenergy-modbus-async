@@ -3,10 +3,10 @@ from typing import Callable, Optional
 
 from pydantic import BaseConfig, create_model
 
-from givenergy_modbus.model.register import HR, IR
-from givenergy_modbus.model.register import Converter as DT
-from givenergy_modbus.model.register import RegisterDefinition as Def
-from givenergy_modbus.model.register import RegisterGetter
+from givenergy_modbus_async.model.register import HR, IR
+from givenergy_modbus_async.model.register import Converter as DT
+from givenergy_modbus_async.model.register import RegisterDefinition as Def
+from givenergy_modbus_async.model.register import RegisterGetter
 
 # fmt: off
 HOLDING_REGISTERS: dict[HR, int] = {HR(i): v for i, v in enumerate([

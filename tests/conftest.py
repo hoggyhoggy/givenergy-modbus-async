@@ -3,10 +3,10 @@ from typing import Optional, Union
 
 import pytest
 
-from givenergy_modbus.exceptions import ExceptionBase, InvalidPduState
-from givenergy_modbus.model.register import HR, IR, Register
-from givenergy_modbus.model.register_cache import RegisterCache
-from givenergy_modbus.pdu import (
+from givenergy_modbus_async.exceptions import ExceptionBase, InvalidPduState
+from givenergy_modbus_async.model.register import HR, IR, Register
+from givenergy_modbus_async.model.register_cache import RegisterCache
+from givenergy_modbus_async.pdu import (
     BasePDU,
     HeartbeatRequest,
     HeartbeatResponse,

@@ -17,8 +17,6 @@ classifiers=[
     'Natural Language :: English',
     'Operating System :: OS Independent',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.9',
-    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Topic :: Home Automation',
     'Topic :: Scientific/Engineering',
@@ -31,11 +29,10 @@ packages = [
 
 [tool.poetry.dependencies]
 aiofiles = "^0.8.0"
-arrow = "^1.2.2"
 crccheck = "^1.1"
-pydantic = "^1.10.7"
-python = ">=3.9,<3.12"
+python = ">=3.11,<3.12"
 aenum = "^3.1.12"
+typing_extensions = ">= 4.5.0"
 
 [tool.poetry.group.dev.dependencies]
 bump2version = "^1.0.1"
@@ -79,7 +76,6 @@ pytkdocs = "^0.16.1"
 givenergy-modbus = 'givenergy_modbus.cli:main'
 
 [tool.black]
-line-length = 120
 skip-string-normalization = true
 target-version = ['py39', 'py310', 'py311']
 include = '\.pyi?$'

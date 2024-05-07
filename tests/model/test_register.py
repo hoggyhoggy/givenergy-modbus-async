@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from givenergy_modbus.model.register import HR, IR, RegisterEncoder
+from givenergy_modbus_async.model.register import HR, IR, RegisterEncoder
 
 # fmt: off
 INPUT_REGISTERS: dict[int, int] = dict(enumerate([
