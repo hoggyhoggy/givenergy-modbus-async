@@ -1,15 +1,14 @@
 import datetime
 import json
-from typing import TYPE_CHECKING, DefaultDict, Optional
+from typing import DefaultDict, Optional
 
-from givenergy_modbus_async.model.register import (
+from .register import (
     HR,
     IR,
     Register,
 )
 
-if TYPE_CHECKING:
-    from givenergy_modbus_async.model import TimeSlot
+from ..model import TimeSlot
 
 
 class RegisterCache(DefaultDict[Register, int]):
@@ -18,7 +17,7 @@ class RegisterCache(DefaultDict[Register, int]):
     def __init__(self, registers: Optional[dict[Register, int]] = None) -> None:
         if registers is None:
             registers = {}
-        super().__init__(lambda: 0, registers)
+        super().__init__(lambda: None, registers)
 
     def json(self) -> str:
         """Return JSON representation of the register cache, to mirror `from_json()`."""  # noqa: D402,D202,E501
@@ -95,6 +94,4 @@ class RegisterCache(DefaultDict[Register, int]):
 
     def to_timeslot(self, start: Register, end: Register) -> "TimeSlot":
         """Combine two registers into a time slot."""
-        from custom_components.givenergy_local.givenergy_modbus_async.model import TimeSlot
-
         return TimeSlot.from_repr(self[start], self[end])

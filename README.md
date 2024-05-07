@@ -7,16 +7,15 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 A python library to access GivEnergy inverters via Modbus TCP on a local network, with no dependency on the GivEnergy
-Cloud. This extends [pymodbus](https://pymodbus.readthedocs.io/) by providing a custom framer, decoder and PDUs that are
-specific to the GivEnergy implementation.
+Cloud.
 
 > ⚠️ This project makes no representations as to its completeness or correctness. You use it at your own risk — if your
 > inverter mysteriously explodes because you accidentally set the `BOOMTIME` register or you consume a MWh of
 > electricity doing SOC calibration: you **really** are on your own. We make every effort to prevent you from shooting
 > yourself in the foot, so as long as you use the client and its exposed methods, you should be perfectly safe.
 
-* Documentation: <https://dewet22.github.io/givenergy-modbus>
-* GitHub: <https://github.com/dewet22/givenergy-modbus>
+* Documentation: <https://hoggyhoggy.github.io/givenergy-modbus-async>
+* GitHub: <https://hoggyhoggy.github.io/givenergy-modbus-async>
 * PyPI: <https://pypi.org/project/givenergy-modbus/>
 * Free software: Apache-2.0
 
@@ -32,43 +31,31 @@ device:
 
 ```python
 import datetime
-from givenergy_modbus.client import GivEnergyClient
-from givenergy_modbus.model.inverter import Model
-from givenergy_modbus.model.plant import Plant
+import givenergy_modbus.commands as commands
+from givenergy_modbus.client import Client
+from givenergy_modbus.model.plant import Plant, Inverter
 
-client = GivEnergyClient(host="192.168.99.99")
+client = Client(host="192.168.99.99")
+await client.connect()
 
-# change configuration on the device:
-client.enable_charge_target(80)
+await client.exec(commands.enable_charge_target(80))
 # set a charging slot from 00:30 to 04:30
-client.set_charge_slot_1((datetime.time(hour=0, minute=30), datetime.time(hour=4, minute=30)))
+await client.exec(commands.set_charge_slot_1((datetime.time(hour=0, minute=30), datetime.time(hour=4, minute=30)))
 # set the inverter to charge when there's excess, and discharge otherwise. it will also respect charging slots.
-client.set_mode_dynamic()
+await client.exec(commands.set_mode_dynamic())
 
-p = Plant(number_batteries=1)
-client.refresh_plant(p, full_refresh=True)
-assert p.inverter.inverter_serial_number == 'SA1234G567'
-assert p.inverter.inverter_model == Model.Hybrid
-assert p.inverter.v_pv1 == 1.4  # V
-assert p.inverter.e_battery_discharge_day == 8.1  # kWh
-assert p.inverter.enable_charge_target
-assert p.inverter.dict() == {
-    'inverter_serial_number': 'SA1234G567',
-    'device_type_code': '3001',
-    'charge_slot_1': (datetime.time(0, 30), datetime.time(7, 30)),
-    'f_ac1': 49.98,
-    ...
-}
-assert p.inverter.json() == '{"inverter_serial_number": "SA1234G567", "device_type_code": "3001", ...'
+client.refresh_plant(full_refresh=True)
+p = client.plant
+inverter = p.inverter
+assert inverter.serial_number == 'SA1234G567'
+assert inverter.model == Model.Hybrid
+assert inverter.v_pv1 == 1.4  # V
+assert inverter.e_battery_discharge_day == 8.1  # kWh
+assert inverter.enable_charge_target
 
-assert p.batteries[0].serial_number == 'BG1234G567'
-assert p.batteries[0].v_battery_cell_01 == 3.117
-assert p.batteries[0].dict() == {
-    'bms_firmware_version': 3005,
-    'design_capacity': 160.0,
-    ...
-}
-assert p.batteries[0].json() == '{"battery_serial_number": "BG1234G567", "v_battery_cell_01": 3.117, ...'
+b0 = p.batteries[0]
+assert b0.serial_number == 'BG1234G567'
+assert b0.v_battery_cell_01 == 3.117
 ```
 
 ## Credits
