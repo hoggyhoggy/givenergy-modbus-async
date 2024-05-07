@@ -2,14 +2,14 @@ import datetime
 import json
 from typing import TYPE_CHECKING, DefaultDict, Optional
 
-from givenergy_modbus_async.model.register import (
+from .register import (
     HR,
     IR,
     Register,
 )
 
 if TYPE_CHECKING:
-    from givenergy_modbus_async.model import TimeSlot
+    from ..model import TimeSlot
 
 
 class RegisterCache(DefaultDict[Register, int]):
