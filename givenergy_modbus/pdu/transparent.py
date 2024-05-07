@@ -1,8 +1,8 @@
 import logging
 from abc import ABC
 
-from givenergy_modbus.codec import PayloadDecoder
-from givenergy_modbus.pdu.base import (
+from ..codec import PayloadDecoder
+from .base import (
     BasePDU,
     ClientIncomingMessage,
     ClientOutgoingMessage,
@@ -133,7 +133,7 @@ class TransparentRequest(TransparentMessage, ClientOutgoingMessage, ABC):
     def lookup_transparent_function_decoder(
         cls, transparent_function_code: int
     ) -> type["TransparentRequest"]:
-        from givenergy_modbus.pdu import (
+        from .import (
             ReadBatteryInputRegistersRequest,
             ReadHoldingRegistersRequest,
             ReadInputRegistersRequest,
@@ -175,7 +175,7 @@ class TransparentResponse(TransparentMessage, ClientIncomingMessage, ABC):
     def lookup_transparent_function_decoder(
         cls, transparent_function_code: int
     ) -> type["TransparentResponse"]:
-        from givenergy_modbus.pdu import (
+        from .import (
             NullResponse,
             ReadHoldingRegistersResponse,
             ReadInputRegistersResponse,
