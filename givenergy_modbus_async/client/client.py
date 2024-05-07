@@ -113,8 +113,8 @@ class Client:
             self.plant.detect_batteries()
         
             # Use that to detect the number of batteries
-        _logger.critical("Batteries detected: %d", self.plant.number_batteries)
-        _logger.critical("Slave address in use: "+ str(self.plant.slave_address))
+        _logger.info("Batteries detected: %d", self.plant.number_batteries)
+        _logger.info("Slave address in use: "+ str(self.plant.slave_address))
 
         # Some devices support additional registers
         # When unsupported, devices appear to simple ignore requests
@@ -142,7 +142,7 @@ class Client:
                         "Inverter did not respond to input register query (base_register=%d)",
                         ir,
                     )
-            _logger.critical("Additional Input Registers: "+str(self.plant.additional_input_registers))
+            _logger.info("Additional Input Registers: "+str(self.plant.additional_input_registers))
 
 
             #possible_additional_holding_registers = [180, 240, 300, 360, 2040]
@@ -163,7 +163,7 @@ class Client:
                         "Inverter did not respond to holding register query (base_register=%d)",
                         hr,
                     )
-            _logger.critical("Additional Holding Registers: "+str(self.plant.additional_holding_registers))
+            _logger.info("Additional Holding Registers: "+str(self.plant.additional_holding_registers))
 
     async def close(self) -> None:
         """Disconnect from the remote host and clean up tasks and queues."""

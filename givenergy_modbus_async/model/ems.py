@@ -72,6 +72,16 @@ class MeterStatus(IntEnum):
     def _missing_(cls, value):
         """Default to 0."""
         return cls(0)
+    
+class BatteryType(IntEnum):
+    """Installed battery type."""
+
+    LEAD_ACID = 0
+    LITHIUM = 1
+    @classmethod
+    def _missing_(cls, value):
+        """Default to 0."""
+        return cls(0)
 
 class InverterRegisterGetter(RegisterGetter):
     """Structured format for all inverter attributes."""
@@ -81,7 +91,11 @@ class InverterRegisterGetter(RegisterGetter):
         # Holding Registers, block 0-59
         #
         "device_type_code": Def(C.hex, None, HR(0)),
+        "inverter_max_power": Def(C.hex, C.inverter_max_power, HR(0)),
         "model": Def(C.hex, Model, HR(0)),
+        "module": Def(C.uint32, (C.hex, 8), HR(1), HR(2)),
+        "num_mppt": Def((C.duint8, 0), None, HR(3)),
+        "num_phases": Def((C.duint8, 1), None, HR(3)),
         "serial_number": Def(C.string, None, HR(13), HR(14), HR(15), HR(16), HR(17)),
         "arm_firmware_version": Def(C.uint16, None, HR(21)),
         "generation": Def(C.uint16, Generation, HR(21)),
@@ -89,6 +103,9 @@ class InverterRegisterGetter(RegisterGetter):
         "system_time": Def(C.datetime, None, HR(35), HR(36), HR(37), HR(38), HR(39), HR(40)),
         "enable_inverter_auto_restart": Def((C.duint8, 0), C.bool, HR(53)),
         "enable_inverter": Def((C.duint8, 1), C.bool, HR(53)),
+        "battery_type": Def(C.uint16, BatteryType, HR(54)),
+        "battery_nominal_capacity": Def(C.uint16, None, HR(55)),
+
         #
         # Holding Registers 2040-2075
         #
@@ -177,10 +194,10 @@ class InverterRegisterGetter(RegisterGetter):
         "inverter_2_soc": Def(C.uint16, None, IR(2059)),
         "inverter_3_soc": Def(C.uint16, None, IR(2060)),
         "inverter_4_soc": Def(C.uint16, None, IR(2061)),
-        "inverter_1_temp": Def(C.int16, None, IR(2062)),
-        "inverter_2_temp": Def(C.int16, None, IR(2063)),
-        "inverter_3_temp": Def(C.int16, None, IR(2064)),
-        "inverter_4_temp": Def(C.int16, None, IR(2065)),
+        "inverter_1_temp": Def(C.int16, C.deci, IR(2062)),
+        "inverter_2_temp": Def(C.int16, C.deci, IR(2063)),
+        "inverter_3_temp": Def(C.int16, C.deci, IR(2064)),
+        "inverter_4_temp": Def(C.int16, C.deci, IR(2065)),
         "inverter_1_serial_number": Def(C.string, None, IR(2066), IR(2067), IR(2068), IR(2069), IR(2070)),
         "inverter_2_serial_number": Def(C.string, None, IR(2071), IR(2072), IR(2073), IR(2074), IR(2075)),
         "inverter_3_serial_number": Def(C.string, None, IR(2076), IR(2077), IR(2078), IR(2079), IR(2080)),
@@ -188,7 +205,7 @@ class InverterRegisterGetter(RegisterGetter):
         "calc_load_power": Def(C.uint16, None, IR(2086)),
         "measured_load_power": Def(C.uint16, None, IR(2087)),
         "total_generation_load_power": Def(C.uint16, None, IR(2088)),
-        "grid_meter_power": Def(C.uint16, None, IR(2089)),
+        "grid_meter_power": Def(C.int16, None, IR(2089)),
         "total_battery_power": Def(C.int16, None, IR(2090)),
         "remaining_battery_wh": Def(C.uint16, None, IR(2091)),
         "other_battery_power": Def(C.int16, None, IR(2094)),

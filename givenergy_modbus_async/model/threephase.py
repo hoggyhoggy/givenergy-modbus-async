@@ -229,7 +229,11 @@ class InverterRegisterGetter(RegisterGetter):
         # Holding Registers, block 0-59
         #
         "device_type_code": Def(C.hex, None, HR(0)),
+        "inverter_max_power": Def(C.hex, C.inverter_max_power, HR(0)),
         "model": Def(C.hex, Model, HR(0)),
+        "module": Def(C.uint32, (C.hex, 8), HR(1), HR(2)),
+        "num_mppt": Def((C.duint8, 0), None, HR(3)),
+        "num_phases": Def((C.duint8, 1), None, HR(3)),
         "serial_number": Def(C.string, None, HR(13), HR(14), HR(15), HR(16), HR(17)),
         "arm_firmware_version": Def(C.uint16, None, HR(21)),
         "generation": Def(C.uint16, Generation, HR(21)),

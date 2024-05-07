@@ -39,20 +39,6 @@ class Model(StrEnum):
         return cls(value[0])
     
     @classmethod
-    def name(cls, value):
-        """Return friendly name for use in logs."""
-        fname={
-            '2':"Hybrid",
-            '3':"AC",
-            '4':"Hybrid - 3ph",
-            '5':"EMS",
-            '6':"AC - 3ph",
-            '7':"Gateway",
-            '8':"All in One",
-        }
-        return fname.get(value)
-    
-    @classmethod
     def add_regs(cls, value):
         """Return possible additional registers."""
         regs={
@@ -219,7 +205,7 @@ class InverterRegisterGetter(RegisterGetter):
         "enable_60hz_freq_mode": Def(C.bool, None, HR(28)),
         "soc_force_adjust": Def(C.uint16, BatteryCalibrationStage, HR(29)),
         "modbus_address": Def(C.uint16, None, HR(30)),
-        "charge_slot_2": Def(C.timeslot, None, HR(31), HR(32)),
+        #"charge_slot_2": Def(C.timeslot, None, HR(31), HR(32)),
         "user_code": Def(C.uint16, None, HR(33)),
         "modbus_version": Def(C.centi, (C.fstr, "0.2f"), HR(34)),
         "system_time": Def(C.datetime, None, HR(35), HR(36), HR(37), HR(38), HR(39), HR(40)),

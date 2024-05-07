@@ -101,6 +101,7 @@ class Converter:
             "4002": 8000,
             "4003": 10000,
             "4004": 11000,
+            "5001": 5000,
             "8001": 6000,
         }
         return dtc_to_power.get(device_type_code)
@@ -144,8 +145,12 @@ class Converter:
     @staticmethod
     def datetime(year, month, day, hour, min, sec) -> Optional[datetime]:
         """Compose a datetime from 6 registers."""
-        if year>999: year=0 #try to get rid of the spurious year error
-        if hour>23: hour=0 #try to get rid of the spurious hour error
+        if 0>year>999: year=0 #try to get rid of the spurious year error
+        if 0>month>12: month=0 #try to get rid of the spurious year error
+        if 0>day>31: day=1
+        if 0>hour>23: hour=0 #try to get rid of the spurious hour error
+        if 0>min>60: min=0 #try to get rid of the spurious hour error
+        if 0>sec>60: sec=0 #try to get rid of the spurious hour error
         if None not in [year, month, day, hour, min, sec]:
             return datetime(year + 2000, month, day, hour, min, sec)
         return None
