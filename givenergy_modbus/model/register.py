@@ -1,14 +1,21 @@
+"""
+Helper classes for the Plant, Inverter and Battery.
+
+Applications shouldn't need to worry about these.
+"""
+
 from dataclasses import dataclass
 from datetime import datetime
 from json import JSONEncoder
 import math
+from textwrap import dedent
 from typing import Any, Callable, Optional, Union
 
-from givenergy_modbus.exceptions import (
+from ..exceptions import (
     ConversionError,
 )
 
-from givenergy_modbus.model import TimeSlot
+from . import TimeSlot
 
 
 class Converter:
@@ -149,11 +156,36 @@ class RegisterDefinition:
         return hash(self.registers)
 
 
+
+# This is used as the metaclass for Inverter and Battery,
+# in order to dynamically generate a docstring from the
+# register definitions.
+
+class DynamicDoc(type):
+    """A metaclass for generating dynamic __doc__ string.
+
+    A class using this metaclass must implement a class method
+    _gendoc() which will be invoked by any access to cls.__doc__
+    (typically documentation tools like pydoc).
+    """
+
+    @property
+    def __doc__(self):
+        """Invoke a helper to generate class docstring."""
+        return self._gendoc()
+
+
 class RegisterGetter:
-    """Specifies how device attributes are derived from raw register values."""
+    """
+    Specifies how device attributes are derived from raw register values.
+    
+    This is the base class for Inverter and Battery, and provides the common
+    code for constructing python attrbitutes from the register definitions.
+    """
 
     # defined by subclass
     REGISTER_LUT: dict[str, RegisterDefinition]
+    _DOC: str
 
     # TODO: cache is actually a RegisterCache, but importing that gives a circular dependency
     def __init__(self, cache: Any):
@@ -194,6 +226,30 @@ class RegisterGetter:
             return val
         except ValueError as err:
             raise ConversionError(key, regs, str(err)) from err
+
+    # This gets invoked during pydoc or similar by a bit of python voodoo.
+    # Inverter and Battery use util.DynamicDoc as a metaclass, and
+    # that defines __doc__ as a property which ends up in here.
+    @classmethod
+    def _gendoc(cls):
+        """"Construct a docstring from fixed prefix and register list."""
+
+        doc = cls._DOC + dedent(
+        """
+
+        The following list of attributes was automatically generated from the
+        register definition list. They are fabricated at runtime via ``__getattr__``.
+        Note that the actual set of registers available depends on the inverter
+        model - accessing a register that doesn't exist will return ``None``.
+
+        Because these attributes are not listed in ``__dict__`` they may not be
+        visible to all python tools.
+        Some appear multiple times as aliases.\n\n"""
+        )
+
+        for reg in cls.REGISTER_LUT.keys():
+            doc += '* ' + reg + "\n"
+        return doc
 
 
 class RegisterEncoder(JSONEncoder):

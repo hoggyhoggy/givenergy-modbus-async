@@ -1,7 +1,15 @@
+"""
+High level interpretation of the battery modbus registers.
+
+The Battery itself is the primary class; the others are
+supporting enumerations.
+"""
+
 from enum import IntEnum
 
-from givenergy_modbus.model.register import (
+from .register import (
     Converter as DT,
+    DynamicDoc,
     RegisterDefinition as Def,
     IR,
     RegisterGetter,
@@ -15,8 +23,12 @@ class UsbDevice(IntEnum):
     DISK = 8
 
 
-class Battery(RegisterGetter):
-    """Battery presents all battery attributes as python types."""
+class Battery(RegisterGetter, metaclass=DynamicDoc):
+    # pylint: disable=missing-class-docstring
+    # The metaclass turns accesses to __doc__ into calls to
+    # _gendoc()  (which we inherit from RegisterGetter)
+
+    _DOC = """Battery presents all battery attributes as python types."""
 
     REGISTER_LUT = {
         # Input Registers, block 60-119
