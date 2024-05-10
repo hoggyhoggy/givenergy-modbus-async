@@ -221,9 +221,10 @@ class Inverter(RegisterGetter, metaclass=DynamicDoc):
         "enable_60hz_freq_mode": Def(C.bool, None, HR(28)),
         "soc_force_adjust": Def(C.uint16, BatteryCalibrationStage, HR(29)),
         "modbus_address": Def(C.uint16, None, HR(30)),
-        "charge_slot_2": Def(C.timeslot, None, HR(31), HR(32)),
-        "charge_slot_2_start": Def(C.uint16, None, HR(31), valid=(0, 2359)),
-        "charge_slot_2_end": Def(C.uint16, None, HR(32), valid=(0, 2359)),
+        # gen-1 defines HR(31)/HR(32) as charge_slot_2, but later generations
+        # define it at HR(243)/HR(244) instead.
+        # It doesn't seem to work on gen-1 anyway (changes get overwritten),
+        # so just leave HR(31) and HR(32) undefined for now.
         "user_code": Def(C.uint16, None, HR(33)),
         "modbus_version": Def(C.centi, (C.fstr, "0.2f"), HR(34)),
         "system_time": Def(
