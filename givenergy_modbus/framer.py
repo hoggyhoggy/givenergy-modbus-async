@@ -1,6 +1,5 @@
 import logging
 from abc import ABC
-from collections.abc import AsyncIterator
 from typing import Callable, Optional, Type, Union, Iterator
 
 from .exceptions import ExceptionBase, InvalidFrame, InvalidPduState

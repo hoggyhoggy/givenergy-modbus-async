@@ -7,7 +7,6 @@ Applications shouldn't need to worry about these.
 from dataclasses import dataclass
 from datetime import datetime
 from json import JSONEncoder
-import math
 from textwrap import dedent
 from typing import Any, Callable, Optional, Union
 
@@ -178,7 +177,7 @@ class DynamicDoc(type):
 class RegisterGetter:
     """
     Specifies how device attributes are derived from raw register values.
-    
+
     This is the base class for Inverter and Battery, and provides the common
     code for constructing python attrbitutes from the register definitions.
     """
