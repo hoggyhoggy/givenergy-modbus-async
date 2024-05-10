@@ -177,6 +177,7 @@ class TransparentResponse(TransparentMessage, ClientIncomingMessage, ABC):
     ) -> type["TransparentResponse"]:
         from .import (
             NullResponse,
+            ReadBatteryInputRegistersResponse,
             ReadHoldingRegistersResponse,
             ReadInputRegistersResponse,
             WriteHoldingRegisterResponse,
@@ -190,6 +191,8 @@ class TransparentResponse(TransparentMessage, ClientIncomingMessage, ABC):
             return ReadInputRegistersResponse
         elif transparent_function_code == 6:
             return WriteHoldingRegisterResponse
+        elif transparent_function_code == 0x16:
+            return ReadBatteryInputRegistersResponse
         else:
             raise NotImplementedError(
                 f"TransparentResponse function #{transparent_function_code} decoder"

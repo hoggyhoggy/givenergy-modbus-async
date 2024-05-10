@@ -70,6 +70,7 @@ class Framer(ABC):
         * `0x04` - read input registers
         * `0x06` - write single holding register
         * `0x10` - write multiple holding registers (not implemented by this library)
+        * `0x16` - read battery input registers
     * ``data`` (*n* bytes) depends on the function invoked
     * ``crc`` (2 bytes) CRC for a request is calculated using the function id, base register and
       step count, but it is unclear how a response CRC is calculated or should be verified.

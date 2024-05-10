@@ -95,7 +95,7 @@ class ReadRegistersRequest(ReadRegistersMessage, TransparentRequest, ABC):
 class ReadRegistersResponse(ReadRegistersMessage, TransparentResponse, ABC):
     """Handles all messages that respond with a range of registers."""
 
-    # ReadInputRegistersResponse sets this to IR,
+    # Read(Battery)InputRegistersResponse sets this to IR,
     # ReadHoldingRegistersResponse sets it to HR.
     register_class: ClassVar[type[Register]]
 
@@ -237,16 +237,16 @@ class ReadInputRegistersResponse(ReadInputRegisters, ReadRegistersResponse):
 
 
 class ReadBatteryInputRegisters(ReadRegistersMessage, ABC):
-    """Request & Response PDUs for function #4/Read Input Registers."""
+    """Request & Response PDUs for function #22/Read Battery Input Registers."""
 
     transparent_function_code = 0x16
 
 
 class ReadBatteryInputRegistersRequest(ReadBatteryInputRegisters, ReadRegistersRequest):
-    """Concrete PDU implementation for handling function #4/Read Input Registers request messages."""
+    """Concrete PDU implementation for handling function #22/Read Battery Input Registers request messages."""
 
     def expected_response(self):
-        return ReadInputRegistersResponse(
+        return ReadBatteryInputRegistersResponse(
             base_register=self.base_register,
             register_count=self.register_count,
             slave_address=self.slave_address,
@@ -256,7 +256,9 @@ class ReadBatteryInputRegistersRequest(ReadBatteryInputRegisters, ReadRegistersR
 class ReadBatteryInputRegistersResponse(
     ReadBatteryInputRegisters, ReadRegistersResponse
 ):
-    """Concrete PDU implementation for handling function #4/Read Input Registers response messages."""
+    """Concrete PDU implementation for handling function #22/Read Battery Input Registers response messages."""
+
+    register_class = IR
 
     def expected_response(self):
         return
