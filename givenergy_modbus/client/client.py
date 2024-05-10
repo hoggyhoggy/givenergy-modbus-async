@@ -1,4 +1,5 @@
 import asyncio
+from io import BufferedIOBase
 import logging
 import socket
 from asyncio import Future, Queue, StreamReader, StreamWriter, Task
@@ -30,27 +31,31 @@ class Client:
     framer: Framer
     expected_responses: "Dict[int, Future[TransparentResponse]]" = {}
     plant: Plant
-    # refresh_count: int = 0
-    # debug_frames: Dict[str, Queue]
     connected = False
     reader: StreamReader
     writer: StreamWriter
     network_consumer_task: Task
     network_producer_task: Task
+    recorder: Optional[BufferedIOBase]
 
     tx_queue: "Queue[Tuple[bytes, Optional[Future]]]"
 
-    def __init__(self, host: str, port: int, connect_timeout: float = 2.0) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        connect_timeout: float = 2.0,
+        recorder: Optional[BufferedIOBase] = None,
+    ) -> None:
         self.host = host
         self.port = port
         self.connect_timeout = connect_timeout
         self.framer = ClientFramer()
         self.plant = Plant()
         self.tx_queue = Queue(maxsize=20)
-        # self.debug_frames = {
-        #     'all': Queue(maxsize=1000),
-        #     'error': Queue(maxsize=1000),
-        # }
+
+        # optionally record all received data to a file
+        self.recorder = recorder
 
     async def connect(self) -> None:
         """Connect to the remote host and start background tasks."""
@@ -71,7 +76,6 @@ class Client:
         self.network_producer_task = asyncio.create_task(
             self._task_network_producer(), name="network_producer"
         )
-        # asyncio.create_task(self._task_dump_queues_to_files(), name='dump_queues_to_files'),
         self.connected = True
         _logger.info("Connection established to %s:%d", self.host, self.port)
 
@@ -107,10 +111,6 @@ class Client:
             del self.reader
 
         self.expected_responses = {}
-        # self.debug_frames = {
-        #     'all': Queue(maxsize=1000),
-        #     'error': Queue(maxsize=1000),
-        # }
 
     async def refresh_plant(
         self,
@@ -160,7 +160,6 @@ class Client:
         await self.connect()
         await self.execute(requests, timeout=timeout, retries=retries)
 
-
     # The i/o activity is co-ordinated by two background tasks:
     # - the consumer reads from the socket, responds to heartbeat requests,
     #   and sends register updates to the plant
@@ -186,12 +185,12 @@ class Client:
     #  client.exec() takes an array of requests, and creates one coroutine per request, to run
     #  send_request_and_await_response in parallel. They happen in random order ?
 
-
     async def _task_network_consumer(self):
         """Task for orchestrating incoming data."""
         while hasattr(self, "reader") and self.reader and not self.reader.at_eof():
             frame = await self.reader.read(300)
-            # await self.debug_frames['all'].put(frame)
+            if self.recorder:
+                self.recorder.write(frame)
             for message in self.framer.decode(frame):
                 _logger.debug("Processing %s", message)
                 if isinstance(message, ExceptionBase):
@@ -205,6 +204,9 @@ class Client:
                     await self.tx_queue.put(
                         (message.expected_response().encode(), None)
                     )
+                    if self.recorder:
+                        # an opportunity to flush to file, since these arrive regularly
+                        self.recorder.flush()
                     continue
                 if not isinstance(message, TransparentResponse):
                     _logger.warning(
@@ -221,11 +223,7 @@ class Client:
 
                 if future and not future.done():
                     future.set_result(message)
-                # try:
                 self.plant.update(message)
-                # except RegisterCacheUpdateFailed as e:
-                #     # await self.debug_frames['error'].put(frame)
-                #     _logger.debug(f'Ignoring {message}: {e}')
         _logger.debug(
             "network_consumer reader at EOF, cannot continue, closing connection"
         )
@@ -245,20 +243,6 @@ class Client:
             "network_producer writer is closing, cannot continue, closing connection"
         )
         await self.close()
-
-    # async def _task_dump_queues_to_files(self):
-    #     """Task to periodically dump debug message frames to disk for debugging."""
-    #     while True:
-    #         await asyncio.sleep(30)
-    #         if self.debug_frames:
-    #             os.makedirs('debug', exist_ok=True)
-    #             for name, queue in self.debug_frames.items():
-    #                 if not queue.empty():
-    #                     async with aiofiles.open(f'{os.path.join("debug", name)}_frames.txt', mode='a') as str_file:
-    #                         await str_file.write(f'# {arrow.utcnow().timestamp()}\n')
-    #                         while not queue.empty():
-    #                             item = await queue.get()
-    #                             await str_file.write(item.hex() + '\n')
 
     def execute(
         self,
