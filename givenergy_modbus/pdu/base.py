@@ -1,7 +1,7 @@
 import logging
 import struct
 from abc import ABC
-from typing import Optional
+from typing import ClassVar
 
 from ..codec import (
     PayloadDecoder,
@@ -22,17 +22,15 @@ class BasePDU(ABC):
     specific addresses, and targets specific operations through function codes. This tree defines the hierarchy of
     functions, along with the attributes they specify and how they are encoded.
 
-    The tree branches at the top based on the directionality of the messages – either client-focused (messages a
-    client should expect to receive and send) or server-focused (less important for this library, but messages that a
-    server would emit and expect to receive). It is mirrored in that a Request message from a client would have a
-    matching Response message the server should reply with.
+    The wire protocol does not distinguish between 'Request' and 'Response', so how to decode a given function
+    code has to be decided in advance - the caller must decide whether they are client-like or server-like.
 
     The PDU classes are also codecs – they know how to convert between binary network frames and instantiated objects
     that can be manipulated programmatically.
     """
 
     _builder: PayloadEncoder
-    function_code: int
+    function_code: ClassVar[int]
     data_adapter_serial_number: str = (
         "AB1234G567"  # for client requests this seems ignored
     )
@@ -45,19 +43,32 @@ class BasePDU(ABC):
     def __init__(self, **kwargs):
         self._set_attribute_if_present("data_adapter_serial_number", **kwargs)
 
+    # encoding
+    # encode() prepares the generic preamble, then calls upon the class-specific
+    # _encode_function_data() to do message-specific part
+
     def encode(self) -> bytes:
         """Encode PDU message from instance attributes."""
-        self.ensure_valid_state()
         self._builder = PayloadEncoder()
         self._builder.add_string(self.data_adapter_serial_number, 10)
         self._encode_function_data()
-        # self._update_check_code()
         inner_frame = self._builder.payload
         mbap_header = struct.pack(
             ">HHHBB", 0x5959, 0x1, len(inner_frame) + 2, 0x1, self.function_code
         )
         self.raw_frame = mbap_header + inner_frame
         return self.raw_frame
+
+    def _encode_function_data(self) -> None:
+        """Complete function-specific encoding of the remainder of the PDU message."""
+        raise NotImplementedError()
+
+    # decoding
+    # decode_bytes() decodes the generic preamble, then calls upon the class-specific
+    # decode_main_function() to do the message-specific part. cls is already set to
+    # a suitable decoder based on fid and message direction.
+    # TODO: the framer has already done a lot of this work.
+    # Doesn't seem much point doing it all again
 
     @classmethod
     def decode_bytes(cls, data: bytes) -> "BasePDU":
@@ -87,12 +98,11 @@ class BasePDU(ABC):
             raise InvalidFrame(f"Unit ID 0x{u_id:02x} != 0x00/0x01", data)
 
         function_code = decoder.decode_8bit_uint()
-        decoder_class = cls.lookup_main_function_decoder(function_code)
+        assert cls.function_code == function_code
 
         try:
-            pdu = decoder_class.decode_main_function(decoder)
+            pdu = cls.decode_main_function(decoder)
             pdu.raw_frame = data
-            pdu.ensure_valid_state()
         except InvalidPduState:
             raise
         # except Exception as e:
@@ -107,19 +117,7 @@ class BasePDU(ABC):
         return pdu
 
     @classmethod
-    def lookup_main_function_decoder(cls, function_code: int) -> type["BasePDU"]:
-        raise NotImplementedError()
-
-    @classmethod
     def decode_main_function(cls, decoder: PayloadDecoder, **attrs) -> "BasePDU":
-        raise NotImplementedError()
-
-    def _encode_function_data(self) -> None:
-        """Complete function-specific encoding of the remainder of the PDU message."""
-        raise NotImplementedError()
-
-    def ensure_valid_state(self) -> None:
-        """Sanity check our internal state."""
         raise NotImplementedError()
 
     def has_same_shape(self, o: object):
@@ -149,56 +147,5 @@ class BasePDU(ABC):
         """Allows extra message-specific keys to be mixed in."""
         raise NotImplementedError()
 
-
-class ClientIncomingMessage(BasePDU, ABC):
-    """Root of the hierarchy for PDUs clients are expected to receive and handle."""
-
-    @classmethod
-    def lookup_main_function_decoder(
-        cls, function_code: int
-    ) -> type["ClientIncomingMessage"]:
-        from .import (
-            HeartbeatRequest,
-            TransparentResponse,
-        )
-
-        if function_code == 1:
-            return HeartbeatRequest
-        elif function_code == 2:
-            return TransparentResponse
-        else:
-            raise NotImplementedError(
-                f"ClientIncomingMessage main function #{function_code} decoder"
-            )
-
-    def expected_response(self) -> Optional["ClientOutgoingMessage"]:
-        """Create a template of a correctly shaped Response expected for this Request."""
-        raise NotImplementedError()
-
-
-class ClientOutgoingMessage(BasePDU, ABC):
-    """Root of the hierarchy for PDUs clients are expected to send to servers."""
-
-    @classmethod
-    def lookup_main_function_decoder(
-        cls, function_code: int
-    ) -> type["ClientOutgoingMessage"]:
-        from .import (
-            HeartbeatResponse,
-            TransparentRequest,
-        )
-
-        if function_code == 1:
-            return HeartbeatResponse
-        elif function_code == 2:
-            return TransparentRequest
-        else:
-            raise NotImplementedError(
-                f"ClientOutgoingMessage main function #{function_code} decoder"
-            )
-
-
-ServerIncomingMessage = ClientOutgoingMessage
-ServerOutgoingMessage = ClientIncomingMessage
 
 __all__ = ()

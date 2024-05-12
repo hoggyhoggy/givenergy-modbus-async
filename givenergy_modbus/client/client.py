@@ -29,7 +29,7 @@ class Client:
     """Asynchronous client utilising long-lived connections to a network device."""
 
     framer: Framer
-    expected_responses: "Dict[int, Future[TransparentResponse]]" = {}
+    expected_responses: "Dict[int, Future[TransparentRequest]]" = {}
     plant: Plant
     connected = False
     reader: StreamReader
@@ -219,10 +219,14 @@ class Client:
                     else:
                         _logger.info("%s", message)
 
+                # look to see if there's an outstanding request of this "shape",
+                # and if so, deliver it (just so it can be marked as done).
                 future = self.expected_responses.get(message.shape_hash())
 
                 if future and not future.done():
                     future.set_result(message)
+
+                # and send the message to the plant
                 self.plant.update(message)
         _logger.debug(
             "network_consumer reader at EOF, cannot continue, closing connection"
@@ -268,13 +272,15 @@ class Client:
         """Send a request to the remote, await and return the response."""
         raw_frame = request.encode()
 
-        # mark the expected response
-        expected_response = request.expected_response()
-        expected_shape_hash = expected_response.shape_hash()
+        # the expected response will have the same shape_hash as the outgoing request,
+        # so we can use this as the key in our expected_responses table.
+        expected_shape_hash = request.shape_hash()
 
         tries = 0
         while tries <= retries:
             tries += 1
+            # cancel any existing incomplete requests on this shape_hash,
+            # then store a new 'future' in the expected_responses table.
             existing_response_future = self.expected_responses.get(expected_shape_hash)
             if existing_response_future and not existing_response_future.done():
                 _logger.debug(
@@ -286,6 +292,8 @@ class Client:
             ] = asyncio.get_event_loop().create_future()
             self.expected_responses[expected_shape_hash] = response_future
 
+            # queue the frame for transmission, with a 'future' to signal when
+            # it has actually been sent, and wait for it to actually get sent.
             frame_sent = asyncio.get_event_loop().create_future()
             await self.tx_queue.put((raw_frame, frame_sent))
             await asyncio.wait_for(
@@ -294,6 +302,8 @@ class Client:
 
             _logger.debug("Request sent (attempt %d): %s", tries, request)
 
+            # Now wait for the consumer task to indicate that a response matching
+            # our request has arrived.
             try:
                 await asyncio.wait_for(response_future, timeout=timeout)
                 if response_future.done():
@@ -309,15 +319,15 @@ class Client:
 
             if tries <= retries:
                 _logger.debug(
-                    "Timeout awaiting %s, attempting retry %d of %d",
-                    expected_response,
+                    "Timeout awaiting response to %s, attempting retry %d of %d",
+                    request,
                     tries,
                     retries,
                 )
 
         _logger.warning(
-            "Timeout awaiting %s after %d tries at %ds, giving up",
-            expected_response,
+            "Timeout awaiting response to %s after %d tries at %ds, giving up",
+            request,
             tries,
             timeout,
         )

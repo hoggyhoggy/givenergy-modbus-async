@@ -121,8 +121,16 @@ class PayloadEncoder:
         fstring = self._byteorder + 'Q'
         self._payload += struct.pack(fstring, value)
 
+    def add_16bit_le(self, value):
+        """Adds a 16-bit unsigned int to the buffer in little-endian order."""
+        self._payload += struct.pack("<H", value)
+
     def add_string(self, value: str, length: int):
         """Adds a string to the buffer."""
         fstring = self._byteorder + str(length) + 's'
         pstring = f'{value[-length:]:*>{length}}'.encode()
         self._payload += struct.pack(fstring, pstring)
+
+    def append(self, array: bytes):
+        """Adds a byte array to the buffer."""
+        self._payload += array
