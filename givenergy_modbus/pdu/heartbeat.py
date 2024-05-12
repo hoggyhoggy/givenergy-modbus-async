@@ -2,11 +2,7 @@ import logging
 from abc import ABC
 
 from ..codec import PayloadDecoder
-from .base import (
-    BasePDU,
-    ClientIncomingMessage,
-    ClientOutgoingMessage,
-)
+from .base import BasePDU
 
 _logger = logging.getLogger(__name__)
 
@@ -17,7 +13,7 @@ class HeartbeatMessage(BasePDU, ABC):
     function_code = 1
     data_adapter_type: int
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.data_adapter_type: int = kwargs.get("data_adapter_type", 0x00)
 
@@ -32,10 +28,6 @@ class HeartbeatMessage(BasePDU, ABC):
         """Encode request PDU message and populate instance attributes."""
         self._builder.add_8bit_uint(self.data_adapter_type)
 
-    def _decode_function_data(self, decoder):
-        """Encode request PDU message and populate instance attributes."""
-        self.data_adapter_type = decoder.decode_8bit_uint()
-
     @classmethod
     def decode_main_function(
         cls, decoder: PayloadDecoder, **attrs
@@ -44,18 +36,8 @@ class HeartbeatMessage(BasePDU, ABC):
         attrs["data_adapter_type"] = decoder.decode_8bit_uint()
         return cls(**attrs)
 
-    def ensure_valid_state(self):
-        """Sanity check our internal state."""
 
-    def _update_check_code(self):
-        pass
-
-    def _extra_shape_hash_keys(self) -> tuple:
-        """Allows extra message-specific keys to be mixed in."""
-        return (self.data_adapter_type,)
-
-
-class HeartbeatRequest(HeartbeatMessage, ClientIncomingMessage, ABC):
+class HeartbeatRequest(HeartbeatMessage, ABC):
     """PDU sent by remote server to check liveness of client."""
 
     def expected_response(self) -> "HeartbeatResponse":
@@ -63,7 +45,7 @@ class HeartbeatRequest(HeartbeatMessage, ClientIncomingMessage, ABC):
         return HeartbeatResponse(data_adapter_type=self.data_adapter_type)
 
 
-class HeartbeatResponse(HeartbeatMessage, ClientOutgoingMessage, ABC):
+class HeartbeatResponse(HeartbeatMessage, ABC):
     """PDU returned by client (within 5s) to confirm liveness."""
 
     def decode(self, data: bytes):

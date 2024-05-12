@@ -61,7 +61,7 @@ def test_encoder_uints():
     e.add_8bit_uint(0x3)
     e.add_8bit_uint(0x4)
     assert e.payload == b'\x01\x02\x03\x04'
-    assert e.crc == 11169
+    assert e.crc() == 11169
 
     e.reset()
     e.add_16bit_uint(0x1)
@@ -69,19 +69,19 @@ def test_encoder_uints():
     e.add_16bit_uint(0x3)
     e.add_16bit_uint(0x4)
     assert e.payload == b'\x00\x01\x00\x02\x00\x03\x00\x04'
-    assert e.crc == 51416
+    assert e.crc() == 51416
 
     e.reset()
     e.add_32bit_uint(0x1)
     e.add_32bit_uint(0x2)
     assert e.payload == b'\x00\x00\x00\x01\x00\x00\x00\x02'
-    assert e.crc == 2812
+    assert e.crc() == 2812
 
     e.reset()
     e.add_64bit_uint(0x1)
     e.add_64bit_uint(0x2)
     assert e.payload == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02'
-    assert e.crc == 41266
+    assert e.crc() == 41266
 
 
 def test_encoder_strings():
@@ -89,14 +89,14 @@ def test_encoder_strings():
     e.add_string('abc', 3)
     e.add_string('AB123G4567', 10)
     assert e.payload == b'abcAB123G4567'
-    assert e.crc == 58715
+    assert e.crc() == 58715
 
     e = PayloadEncoder()
     e.add_string('abc', 5)
     assert e.payload == b'**abc'
-    assert e.crc == 18701
+    assert e.crc() == 18701
 
     e = PayloadEncoder()
     e.add_string('abc', 1)
     assert e.payload == b'c'
-    assert e.crc == 27135
+    assert e.crc() == 27135

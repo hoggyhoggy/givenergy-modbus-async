@@ -23,11 +23,13 @@ from givenergy_modbus.model.plant import Plant
 from givenergy_modbus.model.register import HR, IR, Register
 from givenergy_modbus.model.register_cache import RegisterCache
 from givenergy_modbus.pdu import (
-    ClientIncomingMessage,
+    BasePDU,
+    TransparentResponse,
+    TransparentRequest,
     HeartbeatRequest,
     NullResponse,
     ReadInputRegistersResponse,
-    ReadRegistersResponse,
+    ReadHoldingRegistersResponse,
     WriteHoldingRegisterResponse,
 )
 from tests.conftest import CLIENT_MESSAGES, PduTestCaseSig
@@ -97,14 +99,14 @@ def test_plant(
 async def test_update(
     plant: Plant,
     str_repr: str,
-    pdu_class: type[ClientIncomingMessage],
+    pdu_class: type[TransparentResponse],
     constructor_kwargs: dict[str, Any],
     mbap_header: bytes,
     inner_frame: bytes,
     ex: Optional[ExceptionBase],
 ):
     """Ensure we can update a Plant from PDU Response messages."""
-    pdu: ClientIncomingMessage = pdu_class(**constructor_kwargs)
+    pdu: BasePDU = pdu_class(**constructor_kwargs)
     assert plant.register_caches == {0x32: {}}
     assert plant.data_adapter_serial_number == ''
     assert plant.inverter_serial_number == ''
@@ -119,11 +121,11 @@ async def test_update(
     # assert d.keys() == {'register_caches', 'inverter_serial_number', 'data_adapter_serial_number'}
 
     expected_caches_keys = {0x32}
-    if isinstance(pdu, (ReadRegistersResponse, WriteHoldingRegisterResponse)):
+    if isinstance(pdu, (ReadInputRegistersResponse, ReadHoldingRegistersResponse, WriteHoldingRegisterResponse)):
         expected_caches_keys.add(pdu.slave_address)
     assert plant.register_caches.keys() == expected_caches_keys
 
-    if isinstance(pdu, ReadRegistersResponse):
+    if isinstance(pdu, (ReadInputRegistersResponse, ReadHoldingRegistersResponse)):
         register_type: type[Register]
         if isinstance(pdu, ReadInputRegistersResponse):
             register_type = IR

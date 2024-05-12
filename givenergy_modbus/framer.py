@@ -1,14 +1,17 @@
 import logging
 from abc import ABC
-from typing import Callable, Optional, Type, Union, Iterator
+from typing import ClassVar, Iterator, Union
 
 from .exceptions import ExceptionBase, InvalidFrame, InvalidPduState
-from .pdu import BasePDU, ClientIncomingMessage, ServerIncomingMessage
+from .pdu import (
+    BasePDU,
+    TransparentRequest,
+    TransparentResponse,
+    HeartbeatRequest,
+    HeartbeatResponse,
+)
 
 _logger = logging.getLogger(__name__)
-
-PduProcessedCallback = Callable[[Optional[BasePDU], bytes], None]
-DataProcessedCallback = Callable[[Optional[BasePDU], bytes], None]
 
 HEADER_START_MARKER: bytes = bytes.fromhex("59590001")
 
@@ -74,10 +77,14 @@ class Framer(ABC):
     * ``data`` (*n* bytes) depends on the function invoked
     * ``crc`` (2 bytes) CRC for a request is calculated using the function id, base register and
       step count, but it is unclear how a response CRC is calculated or should be verified.
+
+    Bit 7 of 'func' is set to indicate an error. TODO: are the other fields still sent ?
     """
 
+    # This is set by the sub-class to decide how incoming messages are decoded
+    _fid_to_pdu_lut: ClassVar[dict[int, type[BasePDU]]]
+
     _buffer: bytes = b""
-    pdu_class: "Type[BasePDU]"
 
     def decode(self, data: bytes) -> Iterator[Union[BasePDU, ExceptionBase]]:
         """Receive incoming network data and attempt to decode frames into messages.
@@ -163,23 +170,37 @@ class Framer(ABC):
                 break
 
             # Extract the frame and try to decode it
+            # (Even if we can't, it's popped from _buffer so we can continue.)
             frame = self._buffer[:frame_len]
             self._buffer = self._buffer[frame_len:]
+
+            if f_id not in self._fid_to_pdu_lut:
+                yield InvalidFrame("unknown fid #{f_id}", frame)
+            decoder = self._fid_to_pdu_lut[f_id]
             try:
-                yield self.pdu_class.decode_bytes(frame)
+                yield decoder.decode_bytes(frame)
             except (InvalidPduState, InvalidFrame) as e:
                 yield e
+
+
+# Because the fid is the same for response or request,
+# the caller needs to decide in advance whether they want to
+# interpret the messages as a client or as a server
 
 
 class ClientFramer(Framer):
     """Framer implementation for client-side use."""
 
-    def __init__(self):
-        self.pdu_class = ClientIncomingMessage
+    _fid_to_pdu_lut = {
+        1: HeartbeatRequest,
+        2: TransparentResponse,
+    }
 
 
 class ServerFramer(Framer):
     """Framer implementation for server-side use."""
 
-    def __init__(self):
-        self.pdu_class = ServerIncomingMessage
+    _fid_to_pdu_lut = {
+        1: HeartbeatResponse,
+        2: TransparentRequest,
+    }

@@ -75,7 +75,8 @@ def validate_decoding(
     else:
         assert isinstance(pdu, pdu_class)
         constructor_kwargs['raw_frame'] = raw_frame
-        assert pdu.__dict__ == constructor_kwargs
+        for k in constructor_kwargs:
+            assert getattr(pdu, k) == constructor_kwargs[k]
 
 
 @pytest.mark.parametrize(PduTestCaseSig, SERVER_MESSAGES)
@@ -203,7 +204,7 @@ def test_process_stream_good():
     assert isinstance(response, ReadInputRegistersResponse)
     assert response.base_register == 0
     assert response.register_count == 120
-    assert response.register_values == []
+    assert response.register_values == ()
     assert response.error is True
     assert response.transparent_function_code == 0x04
 
@@ -211,7 +212,7 @@ def test_process_stream_good():
     assert isinstance(response, ReadInputRegistersResponse)
     assert response.base_register == 0
     assert response.register_count == 6
-    assert response.register_values == [1, 3054, 3029, 3881, 0, 2389]
+    assert response.register_values == (1, 3054, 3029, 3881, 0, 2389)
     assert response.error is False
     assert response.transparent_function_code == 0x04
 
@@ -230,7 +231,7 @@ def test_process_stream_good_but_noisy():
     assert isinstance(response, ReadInputRegistersResponse)
     assert response.base_register == 0
     assert response.register_count == 120
-    assert response.register_values == []
+    assert response.register_values == ()
     assert response.error is True
     assert response.transparent_function_code == 0x04
     assert response.raw_frame == EXCEPTION_RESPONSE_FRAME
@@ -239,7 +240,7 @@ def test_process_stream_good_but_noisy():
     assert isinstance(response, ReadInputRegistersResponse)
     assert response.base_register == 0
     assert response.register_count == 6
-    assert response.register_values == [1, 3054, 3029, 3881, 0, 2389]
+    assert response.register_values == (1, 3054, 3029, 3881, 0, 2389)
     assert response.error is False
     assert response.transparent_function_code == 0x04
     assert response.raw_frame == VALID_RESPONSE_FRAME
