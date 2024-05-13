@@ -22,13 +22,15 @@ class Plant:
     """Representation of a complete GivEnergy plant."""
 
     register_caches: dict[int, RegisterCache] = {}
-    inverter_serial_number: str = ""
+    inverter_serial_number: str
     data_adapter_serial_number: str = ""
     number_batteries: int = 0
 
-    def __init__(self) -> None:
-        if not self.register_caches:
-            self.register_caches = {0x32: RegisterCache()}
+    def __init__(self, inverter_serial_number: str = "", register_caches=None) -> None:
+        self.inverter_serial_number = inverter_serial_number
+        if not register_caches:
+            register_caches = {0x32: RegisterCache()}
+        self.register_caches = register_caches
 
     def update(self, pdu: ClientIncomingMessage):
         """Update the Plant state from a PDU message."""

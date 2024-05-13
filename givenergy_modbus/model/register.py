@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from json import JSONEncoder
 from textwrap import dedent
-from typing import Any, Callable, ClassVar, Optional, Union
+from typing import Any, Callable, ClassVar, Iterator, Optional, Union
 
 from ..exceptions import (
     ConversionError,
@@ -223,6 +223,18 @@ class RegisterGetter:
             return val
         except ValueError as err:
             raise ConversionError(key, regs, str(err)) from err
+
+    def getall(self) -> Iterator[tuple[str, Any]]:
+        """Return all the attribute/value pairs.
+
+        Can be used to initialise a dict.
+        """
+        for att in self.REGISTER_LUT:
+            yield att, self.get(att)
+
+    def __str__(self) -> str:
+        """Return a string representation of the device registers."""
+        return " ".join(f"{k}={v}" for k, v in self.getall())
 
     # This gets invoked during pydoc or similar by a bit of python voodoo.
     # Inverter and Battery use util.DynamicDoc as a metaclass, and

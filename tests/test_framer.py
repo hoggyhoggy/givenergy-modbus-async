@@ -57,7 +57,7 @@ EXCEPTION_RESPONSE_FRAME = (  # actual recorded response frame, to request above
 )  # 44 bytes
 
 
-async def validate_decoding(
+def validate_decoding(
     framer: Framer,
     raw_frame: bytes,
     pdu_class: type[BasePDU],
@@ -65,7 +65,7 @@ async def validate_decoding(
     ex: Optional[ExceptionBase],
 ):
     results = []
-    async for result in framer.decode(raw_frame):
+    for result in framer.decode(raw_frame):
         results.append(result)
     assert len(results) == 1
     pdu = results[0]
@@ -79,7 +79,7 @@ async def validate_decoding(
 
 
 @pytest.mark.parametrize(PduTestCaseSig, SERVER_MESSAGES)
-async def test_server_decoding(
+def test_server_decoding(
     str_repr: str,
     pdu_class: type[BasePDU],
     constructor_kwargs: dict[str, Any],
@@ -88,11 +88,11 @@ async def test_server_decoding(
     ex: Optional[ExceptionBase],
 ):
     """Ensure Request PDU messages can be decoded from raw messages."""
-    await validate_decoding(ServerFramer(), mbap_header + inner_frame, pdu_class, constructor_kwargs, ex)
+    validate_decoding(ServerFramer(), mbap_header + inner_frame, pdu_class, constructor_kwargs, ex)
 
 
 @pytest.mark.parametrize(PduTestCaseSig, CLIENT_MESSAGES)
-async def test_client_decoding(
+def test_client_decoding(
     str_repr: str,
     pdu_class: type[BasePDU],
     constructor_kwargs: dict[str, Any],
@@ -101,27 +101,27 @@ async def test_client_decoding(
     ex: Optional[ExceptionBase],
 ):
     """Ensure Response PDU messages can be decoded from raw messages."""
-    await validate_decoding(ClientFramer(), mbap_header + inner_frame, pdu_class, constructor_kwargs, ex)
+    validate_decoding(ClientFramer(), mbap_header + inner_frame, pdu_class, constructor_kwargs, ex)
 
 
-async def decode(framer_class: type[Framer], buffer: str) -> Union[BasePDU, ExceptionBase]:
+def decode(framer_class: type[Framer], buffer: str) -> Union[BasePDU, ExceptionBase]:
     results = []
-    async for result in framer_class().decode(_h2b(buffer)):
+    for result in framer_class().decode(_h2b(buffer)):
         results.append(result)
     assert len(results) == 1
     return results[0]
 
 
-async def test_process_heartbeat_request():
-    response = await decode(ClientFramer, '5959 0001 000d 0101 5746 3132 3334 4735 3637 02')
+def test_process_heartbeat_request():
+    response = decode(ClientFramer, '5959 0001 000d 0101 5746 3132 3334 4735 3637 02')
     assert isinstance(response, HeartbeatRequest)
     assert response.function_code == 1
     assert response.data_adapter_serial_number == 'WF1234G567'
     assert response.data_adapter_type == 2
 
 
-async def test_process_null_response():
-    response = await decode(
+def test_process_null_response():
+    response = decode(
         ClientFramer,
         '5959 0001 009e 0102 5746 3132 3334 4735 3637 0000 0000 0000 008a 3200 0000 '
         '0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 '
@@ -135,7 +135,7 @@ async def test_process_null_response():
     assert response.data_adapter_serial_number == 'WF1234G567'
 
 
-async def test_process_short_buffer():
+def test_process_short_buffer():
     """Test a buffer with a truncated message."""
     framer = ClientFramer()
     buffer = _h2b(
@@ -147,12 +147,12 @@ async def test_process_short_buffer():
     )
     results = []
 
-    async for result in framer.decode(buffer):
+    for result in framer.decode(buffer):
         results.append(result)
 
     assert len(results) == 0
 
-    async for result in framer.decode(buffer):
+    for result in framer.decode(buffer):
         results.append(result)
     assert len(results) == 1
     response = results[0]
@@ -167,14 +167,14 @@ async def test_process_short_buffer():
 
 
 @pytest.mark.parametrize('buffer', [VALID_RESPONSE_FRAME], ids=['VALID_RESPONSE_FRAME'])
-async def test_various_short_message_buffers(caplog, buffer):
+def test_various_short_message_buffers(caplog, buffer):
     """Try all lengths of incomplete messages to flush out bugs in framing logic."""
     framer = ClientFramer()
     results = []
 
     for i in range(len(buffer)):
         with caplog.at_level(logging.DEBUG, logger='givenergy_modbus.framer'):
-            async for result in framer.decode(buffer[:i]):
+            for result in framer.decode(buffer[:i]):
                 results.append(result)
         assert results == []
         if i < 18:
@@ -188,13 +188,13 @@ async def test_various_short_message_buffers(caplog, buffer):
         framer._buffer = b''
 
 
-async def test_process_stream_good():
+def test_process_stream_good():
     """Test a buffer of good messages without noise."""
     framer = ClientFramer()
     buffer = EXCEPTION_RESPONSE_FRAME + VALID_RESPONSE_FRAME
     results = []
 
-    async for result in framer.decode(buffer):
+    for result in framer.decode(buffer):
         results.append(result)
 
     assert len(results) == 2
@@ -216,12 +216,12 @@ async def test_process_stream_good():
     assert response.transparent_function_code == 0x04
 
 
-async def test_process_stream_good_but_noisy():
+def test_process_stream_good_but_noisy():
     """Test a buffer of good messages without noise."""
     buffer = b'\x01\x02asdf' + EXCEPTION_RESPONSE_FRAME + b'foobarbaz' + VALID_RESPONSE_FRAME + b'\x00\x99\xff'
     results = []
 
-    async for result in ClientFramer().decode(buffer):
+    for result in ClientFramer().decode(buffer):
         results.append(result)
 
     assert len(results) == 2
@@ -245,7 +245,7 @@ async def test_process_stream_good_but_noisy():
     assert response.raw_frame == VALID_RESPONSE_FRAME
 
 
-async def test_decode_frames_bulk(caplog):
+def test_decode_frames_bulk(caplog):
     caplog.set_level(logging.DEBUG)
 
     buffer = b''
@@ -256,7 +256,7 @@ async def test_decode_frames_bulk(caplog):
 
     i = 0
     framer = ClientFramer()
-    async for message in framer.decode(buffer):
+    for message in framer.decode(buffer):
         assert str(message) == CLIENT_MESSAGES[i][0][0]
         assert isinstance(message, CLIENT_MESSAGES[i][0][1])
         assert len(caplog.records) >= 2
@@ -276,7 +276,7 @@ async def test_decode_frames_bulk(caplog):
     assert framer._buffer == b'bar'
 
 
-async def test_inverter_boot(caplog):
+def test_inverter_boot(caplog):
     """Test a buffer of good messages without noise."""
     # fmt: off
     messages = [  # starting with client
@@ -350,10 +350,10 @@ async def test_inverter_boot(caplog):
     i = 0
     for m in messages:
         if i % 2 == 0:
-            async for result in ClientFramer().decode(bytes.fromhex(m)):
+            for result in ClientFramer().decode(bytes.fromhex(m)):
                 results.append(result)
         else:
-            async for result in ServerFramer().decode(bytes.fromhex(m)):
+            for result in ServerFramer().decode(bytes.fromhex(m)):
                 results.append(result)
         i += 1
 
