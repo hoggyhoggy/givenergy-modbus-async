@@ -115,19 +115,19 @@ class Client:
     async def refresh_plant(
         self,
         full_refresh: bool = True,
-        max_batteries: int = 5,
-        timeout: float = 1.0,
-        retries: int = 0,
+        number_batteries: int = 0,
+        timeout: float = 3,
+        retries: int = 5,
     ) -> Plant:
         """Refresh data about the Plant."""
+
         reqs = commands.refresh_plant_data(
-            full_refresh, self.plant.number_batteries, max_batteries
+            full_refresh, number_batteries, isHV=self.plant.isHV, 
+            additional_holding_registers=self.plant.additional_holding_registers,
+            additional_input_registers=self.plant.additional_input_registers, 
+            slave_addr=self.plant.slave_address,
         )
         await self.execute(reqs, timeout=timeout, retries=retries)
-
-        if full_refresh:
-            self.plant.detect_batteries()
-
         return self.plant
 
     async def watch_plant(
@@ -152,6 +152,103 @@ class Client:
                 await self.execute(
                     reqs, timeout=timeout, retries=retries, return_exceptions=True
                 )
+
+    async def detect_plant(
+        self,
+        timeout: int = 3,
+        retries: int = 10,
+        additional: bool=True) -> None:
+        """Detect inverter capabilities that influence how subsequent 
+        requests are made."""
+
+        _logger.info("Detecting plant")
+        from ..model.register import Model
+        # Refresh the core set of registers that work across all inverters
+        #await self.refresh_plant(True, timeout=timeout, retries=retries)
+        
+        #Force 0x11 slave address only during detect
+        self.plant.slave_address=0x11
+        self.plant.isHV = False
+
+        await self.refresh_plant(True, number_batteries=0, retries=retries, timeout=timeout)
+
+        _logger.info("Plant Detected")
+
+############ Check what other devices need 0x11 ###############
+        #find model depending on device type
+        if not self.plant.inverter == None:
+            self.plant.device_type=self.plant.inverter.model
+            
+        elif not self.plant.gateway == None:
+            self.plant.device_type=self.plant.gateway.model
+        elif not self.plant.ems == None:
+            self.plant.device_type=self.plant.ems.model
+
+        if self.plant.device_type in (Model.ALL_IN_ONE, Model.AC_3PH, Model.HYBRID_3PH):
+            self.plant.isHV = True
+        else:
+            self.plant.isHV= False
+
+        if self.plant.device_type in (Model.EMS,Model.GATEWAY):
+            self.plant.number_batteries=0
+        else:
+            if self.plant.device_type in (Model.AC, Model.HYBRID):
+                self.plant.slave_address = 0x31
+            await self.refresh_plant(True, number_batteries=6, retries=retries, timeout=timeout)
+            self.plant.detect_batteries()
+        
+            # Use that to detect the number of batteries
+        _logger.info("Batteries detected: %d", self.plant.number_batteries)
+        _logger.info("Slave address in use: "+ str(self.plant.slave_address))
+
+        # Some devices support additional registers
+        # When unsupported, devices appear to simple ignore requests
+        
+############ What register sets should we look for????
+        if additional:
+
+            # Set additional registers based on model
+            additional_registers=Model.add_regs(self.plant.device_type.value)
+            possible_additional_input_registers=additional_registers[0]
+            possible_additional_holding_registers=additional_registers[1]
+
+            #possible_additional_input_registers = [2040]
+            for ir in possible_additional_input_registers:
+                try:
+                    reqs = commands.refresh_additional_input_registers(ir,self.plant.slave_address)
+                    await self.execute(reqs, timeout=timeout, retries=3)
+                    _logger.info(
+                        "Detected additional input register support (base_register=%d)",
+                        ir,
+                    )
+                    self.plant.additional_input_registers.append(ir)
+                except asyncio.TimeoutError:
+                    _logger.debug(
+                        "Inverter did not respond to input register query (base_register=%d)",
+                        ir,
+                    )
+            _logger.info("Additional Input Registers: "+str(self.plant.additional_input_registers))
+
+
+            #possible_additional_holding_registers = [180, 240, 300, 360, 2040]
+            for hr in possible_additional_holding_registers:
+                try:
+                    if hr == 2040:      #For EMS there are only 36 regs in the 2040 block
+                        reqs = commands.refresh_additional_holding_registers(hr,self.plant.slave_address,36)
+                    else:
+                        reqs = commands.refresh_additional_holding_registers(hr,self.plant.slave_address)
+                    await self.execute(reqs, timeout=timeout, retries=3)
+                    _logger.info(
+                        "Detected additional holding register support (base_register=%d)",
+                        hr,
+                    )
+                    self.plant.additional_holding_registers.append(hr)
+                except asyncio.TimeoutError:
+                    _logger.debug(
+                        "Inverter did not respond to holding register query (base_register=%d)",
+                        hr,
+                    )
+            _logger.info("Additional Holding Registers: "+str(self.plant.additional_holding_registers))
 
     async def one_shot_command(
         self, requests: list[TransparentRequest], timeout=1.5, retries=0
@@ -183,7 +280,7 @@ class Client:
     #  Instead, when an entry is reused for a new request, if the existing
     #  future was not signalled, it gets cancelled.
     #
-    #  client.exec() takes an array of requests, and creates one coroutine per request, to run
+    #  client.execute() takes an array of requests, and creates one coroutine per request, to run
     #  send_request_and_await_response in parallel. They happen in random order ?
 
 
@@ -331,7 +428,7 @@ class Client:
                     retries,
                 )
 
-        _logger.warning(
+        _logger.critical(
             "Timeout awaiting %s after %d tries at %ds, giving up",
             expected_response,
             tries,

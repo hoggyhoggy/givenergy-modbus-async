@@ -60,4 +60,8 @@ class TimeSlot:
             end = f"{end:04d}"
         end_hour = int(end[:-2])
         end_minute = int(end[-2:])
-        return cls(time(start_hour, start_minute), time(end_hour, end_minute))
+        try:
+            return cls(time(start_hour, start_minute), time(end_hour, end_minute))
+        except:
+            # if there's garbage data return midnight
+            return cls(time(0,0), time(0,0))
