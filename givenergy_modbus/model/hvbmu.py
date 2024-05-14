@@ -5,8 +5,6 @@ The BMU itself is the primary class; the others are
 supporting enumerations.
 """
 
-from enum import IntEnum
-
 from .register import (
     Converter as DT,
     DynamicDoc,
@@ -19,14 +17,6 @@ from .register import (
 Adder: 0x50~0x6F
 Register start address = (Register base NO) + 120 *  (BAMS_Addr - 0x90)  * 32 + 120* (BCU_Addr - 0x70);
 """
-
-
-class UsbDevice(IntEnum):
-    """USB devices that can be inserted into batteries."""
-
-    NONE = 0
-    DISK = 8
-    UNKNOWN = 257
 
 
 class BMU(RegisterGetter, metaclass=DynamicDoc):

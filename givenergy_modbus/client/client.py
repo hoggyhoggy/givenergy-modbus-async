@@ -125,7 +125,7 @@ class Client:
             full_refresh, number_batteries, isHV=self.plant.isHV, 
             additional_holding_registers=self.plant.additional_holding_registers,
             additional_input_registers=self.plant.additional_input_registers, 
-            slave_addr=self.plant.slave_address
+            slave_addr=self.plant.slave_address,
         )
         await self.execute(reqs, timeout=timeout, retries=retries)
         return self.plant
@@ -162,7 +162,7 @@ class Client:
         requests are made."""
 
         _logger.info("Detecting plant")
-        from ..model.inverter import Model
+        from ..model.register import Model
         # Refresh the core set of registers that work across all inverters
         #await self.refresh_plant(True, timeout=timeout, retries=retries)
         
@@ -175,20 +175,26 @@ class Client:
         _logger.info("Plant Detected")
 
 ############ Check what other devices need 0x11 ###############
-        if self.plant.inverter.model in (Model.ALL_IN_ONE, Model.EMS,Model.GATEWAY):
-            self.plant.slave_address = 0x11
-        else:
-            self.plant.slave_address = 0x31
+        #find model depending on device type
+        if not self.plant.inverter == None:
+            self.plant.device_type=self.plant.inverter.model
+            
+        elif not self.plant.gateway == None:
+            self.plant.device_type=self.plant.gateway.model
+        elif not self.plant.ems == None:
+            self.plant.device_type=self.plant.ems.model
 
-        if self.plant.inverter.model == Model.ALL_IN_ONE:
+        if self.plant.device_type in (Model.ALL_IN_ONE, Model.AC_3PH, Model.HYBRID_3PH):
             self.plant.isHV = True
         else:
             self.plant.isHV= False
 
-        if self.plant.inverter.model in (Model.EMS,Model.GATEWAY):
+        if self.plant.device_type in (Model.EMS,Model.GATEWAY):
             self.plant.number_batteries=0
         else:
-            await self.refresh_plant(True, number_batteries=5, retries=retries, timeout=timeout)
+            if self.plant.device_type in (Model.AC, Model.HYBRID):
+                self.plant.slave_address = 0x31
+            await self.refresh_plant(True, number_batteries=6, retries=retries, timeout=timeout)
             self.plant.detect_batteries()
         
             # Use that to detect the number of batteries
@@ -202,7 +208,7 @@ class Client:
         if additional:
 
             # Set additional registers based on model
-            additional_registers=Model.add_regs(self.plant.inverter.model.value)
+            additional_registers=Model.add_regs(self.plant.device_type.value)
             possible_additional_input_registers=additional_registers[0]
             possible_additional_holding_registers=additional_registers[1]
 

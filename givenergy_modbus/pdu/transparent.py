@@ -190,6 +190,8 @@ class TransparentResponse(TransparentMessage, ClientIncomingMessage, ABC):
             return ReadInputRegistersResponse
         elif transparent_function_code == 6:
             return WriteHoldingRegisterResponse
+        elif transparent_function_code == 22:       #This is meter reading responses
+            return NullResponse
         else:
             raise NotImplementedError(
                 f"TransparentResponse function #{transparent_function_code} decoder"

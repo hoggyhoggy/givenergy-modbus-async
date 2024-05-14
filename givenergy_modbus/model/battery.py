@@ -5,7 +5,7 @@ The Battery itself is the primary class; the others are
 supporting enumerations.
 """
 
-from enum import IntEnum
+from .register import *
 
 from .register import (
     Converter as DT,
@@ -14,13 +14,6 @@ from .register import (
     IR,
     RegisterGetter,
 )
-
-
-class UsbDevice(IntEnum):
-    """USB devices that can be inserted into batteries."""
-
-    NONE = 0
-    DISK = 8
 
 
 class Battery(RegisterGetter, metaclass=DynamicDoc):

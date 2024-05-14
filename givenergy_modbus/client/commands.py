@@ -10,10 +10,8 @@ from typing import Optional
 from typing_extensions import deprecated  # type: ignore[attr-defined]
 
 from ..model import TimeSlot
-from ..model.inverter import (
-    Inverter,
-    BatteryPauseMode,
-)
+from ..model.register import BatteryPauseMode
+from ..model.inverter import Inverter
 from ..pdu import (
     ReadHoldingRegistersRequest,
     ReadInputRegistersRequest,
@@ -237,10 +235,10 @@ def refresh_plant_data(
     if isHV and not number_batteries==0:    #Get Battery data from AIO/HV systems
         # BCU
         requests.append(
-                ReadInputRegistersRequest(
-                    base_register=60, register_count=60, slave_address=0x70
-                )
+            ReadInputRegistersRequest(
+                base_register=60, register_count=60, slave_address=0x70
             )
+        )
         # BMU
         for i in range(number_batteries):
             requests.append(
@@ -272,6 +270,7 @@ def enable_charge_target() -> list[TransparentRequest]:
         WriteHoldingRegisterRequest(RegisterMap.ENABLE_CHARGE_TARGET, True),
     ]
 
+
 def set_charge_target(target_soc: int) -> list[TransparentRequest]:
     """Sets inverter to stop charging when SOC reaches the desired level. Also referred to as "winter mode"."""
     if not 4 <= target_soc <= 100:
@@ -286,8 +285,7 @@ def set_charge_target(target_soc: int) -> list[TransparentRequest]:
             WriteHoldingRegisterRequest(RegisterMap.CHARGE_TARGET_SOC, target_soc)
         )
     return ret 
-    
-    #return [WriteHoldingRegisterRequest(RegisterMap.CHARGE_TARGET_SOC, target_soc)]
+
 
 
 def set_export_soc_target(idx: int, target_soc: int) -> list[TransparentRequest]:
@@ -332,9 +330,16 @@ def set_active_power_rate(target: int) -> list[TransparentRequest]:
     """Set max inverter power rate"""
     return [WriteHoldingRegisterRequest(RegisterMap.ACTIVE_POWER_RATE, target)]
 
-def set_calibrate_battery_soc() -> list[TransparentRequest]:
-    """Set the inverter to recalibrate the battery state of charge estimation."""
-    return [WriteHoldingRegisterRequest(RegisterMap.SOC_FORCE_ADJUST, 1)]
+def set_calibrate_battery_soc(val: int) -> list[TransparentRequest]:
+    """Set the inverter to recalibrate the battery state of charge estimation.
+    0- Stop
+    1- Start
+    3- Charge only
+    """
+    if val in (0,1,3):
+        return [
+            WriteHoldingRegisterRequest(RegisterMap.SOC_FORCE_ADJUST, val),
+        ]
 
 
 @deprecated("use set_enable_charge(True) instead")

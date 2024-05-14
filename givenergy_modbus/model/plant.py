@@ -8,7 +8,8 @@ from .ems import EMS
 from .gateway import Gateway
 from .threephase import ThreePhaseInverter
 
-from .inverter import Inverter, Model
+from .inverter import Inverter
+from .register import Model
 from .register import HR, IR
 from .register_cache import (
     RegisterCache,
@@ -34,8 +35,10 @@ class Plant:
     inverter_serial_number: str = ""
     data_adapter_serial_number: str = ""
     number_batteries: int = 0
+    number_bcu: int = 0
     slave_address: int = 0x31
     isHV: bool = True
+    device_type: Model
 
     def __init__(self) -> None:
         if not self.register_caches:
@@ -94,36 +97,50 @@ class Plant:
         if self.inverter.model==Model.EMS or self.inverter.model==Model.GATEWAY:
             self.number_batteries=0
             return
-        i = 0
-        for i in range(6):
-            try:
-                if self.isHV:
-                    assert BMU(self.register_caches[i + 0x50]).is_valid()
-                else:
-                    assert Battery(self.register_caches[i + 0x32]).is_valid()
-            except (KeyError, AssertionError):
-                break
-        self.number_batteries = i
+        if self.isHV:
+            self.number_batteries=BCU(self.register_caches[0x70]).get('number_of_module')
+        else:
+            i = 0
+            for i in range(6):
+                try:
+                        assert Battery(self.register_caches[i + 0x32]).is_valid()
+                except (KeyError, AssertionError):
+                    break
+            self.number_batteries = i
+
+        #if self.isHV:
+        #    i = 0
+        #    for i in range(6):
+        #        try:
+        #            assert BCU(self.register_caches[i + 0x70]).is_valid()
+        #        except (KeyError, AssertionError):
+        #            break
+        #    self.number_bcu=i
 
     @property
-    def inverter(self) -> Inverter:
+    def inverter(self) -> Inverter:     #Would an AIO Class make sense here?
         """Return Inverter model for the Plant."""
-        return Inverter(self.register_caches[self.slave_address])
+        if hex(self.register_caches[self.slave_address][HR(0)])[2:3]=="4":
+            return ThreePhaseInverter(self.register_caches[self.slave_address])
+        elif hex(self.register_caches[self.slave_address][HR(0)])[2:3] in ("2","3","8"):
+            return Inverter(self.register_caches[self.slave_address])
     
-    @property
-    def threephaseinverter(self) -> Inverter:
-        """Return 3ph Inverter model for the Plant."""
-        return ThreePhaseInverter(self.register_caches[self.slave_address])
+#    @property
+#    def threephaseinverter(self) -> Inverter:
+#        """Return 3ph Inverter model for the Plant."""
+#        return ThreePhaseInverter(self.register_caches[self.slave_address])
     
     @property
     def ems(self) -> EMS:
         """Return EMS model for the Plant."""
-        return EMS(self.register_caches[self.slave_address])
+        if hex(self.register_caches[self.slave_address][HR(0)])[2:3]=="5":
+            return EMS(self.register_caches[self.slave_address])
     
     @property
     def gateway(self) -> Gateway:
         """Return Gateway model for the Plant."""
-        return Gateway(self.register_caches[self.slave_address])
+        if hex(self.register_caches[self.slave_address][HR(0)])[2:3]=="7":
+            return Gateway(self.register_caches[self.slave_address])
 
     @property
     def batteries(self) -> list[Battery]:
@@ -138,10 +155,11 @@ class Plant:
                 Battery(self.register_caches[i + 0x32])
                 for i in range(self.number_batteries)
             ]
+        
     @property
     def bcu(self) -> list[BCU]:
         """Return HV Battery models for the Plant."""
-        if 0x50 in self.register_caches.keys():
-            return BCU(self.register_caches[0x70])
-        else:
-            return None
+        if self.isHV:
+            return [    
+                BCU(self.register_caches[0x70])
+            ]

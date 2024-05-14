@@ -5,8 +5,6 @@ The BCU itself is the primary class; the others are
 supporting enumerations.
 """
 
-from enum import IntEnum
-
 from .register import (
     Converter as DT,
     DynamicDoc,
@@ -19,14 +17,6 @@ from .register import (
 Addr:0x70~0x8F
 Register start address = (Register base NO) + 240  * (BAMS_Addr  -  0x90);
 """
-
-
-class UsbDevice(IntEnum):
-    """USB devices that can be inserted into batteries."""
-
-    NONE = 0
-    DISK = 8
-    UNKNOWN = 257
 
 
 class BCU(RegisterGetter, metaclass=DynamicDoc):
@@ -72,7 +62,7 @@ class BCU(RegisterGetter, metaclass=DynamicDoc):
 
     def is_valid(self) -> bool:
         """Try to detect if a battery exists based on its attributes."""
-        return self.serial_number not in (
+        return self.get('pack_software_version') not in (
             None,
             "",
             "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
