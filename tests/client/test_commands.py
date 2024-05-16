@@ -1,11 +1,13 @@
 import arrow
 import pytest
 
-from givenergy_modbus.client import commands
+from givenergy_modbus.client.client import Client
 from givenergy_modbus.client.commands import RegisterMap
 from givenergy_modbus.model import TimeSlot
 from givenergy_modbus.pdu import WriteHoldingRegisterRequest
 
+client = Client('foo', 1234)
+commands = client.commands
 
 async def test_configure_charge_target():
     """Ensure we can set and disable a charge target."""
