@@ -3,7 +3,7 @@ from io import BufferedIOBase
 import logging
 import socket
 from asyncio import Future, Queue, StreamReader, StreamWriter, Task
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from . import commands
 from ..exceptions import (
@@ -120,7 +120,7 @@ class Client:
         retries: int = 0,
     ) -> Plant:
         """Refresh data about the Plant."""
-        reqs = commands.refresh_plant_data(
+        reqs = self.commands.refresh_plant_data(
             full_refresh, self.plant.number_batteries, max_batteries
         )
         await self.execute(reqs, timeout=timeout, retries=retries)
@@ -129,6 +129,16 @@ class Client:
             self.plant.detect_batteries()
 
         return self.plant
+
+    # For now, client.commands just returns a reference to
+    # the commands module. Later, it will return an instance
+    # of some class which has access to the plant, since
+    # commands will need to validated against the particular
+    # model of device the client is attached to.
+    @property
+    def commands(self):
+        """Access to the library of commands."""
+        return commands
 
     async def watch_plant(
         self,
@@ -148,13 +158,15 @@ class Client:
                 handler()
             await asyncio.sleep(refresh_period)
             if not passive:
-                reqs = commands.refresh_plant_data(False, self.plant.number_batteries)
+                reqs = self.commands.refresh_plant_data(
+                    False, self.plant.number_batteries
+                )
                 await self.execute(
                     reqs, timeout=timeout, retries=retries, return_exceptions=True
                 )
 
     async def one_shot_command(
-        self, requests: list[TransparentRequest], timeout=1.5, retries=0
+        self, requests: Sequence[TransparentRequest], timeout=1.5, retries=0
     ) -> None:
         """Run a single set of requests and return."""
         await self.connect()
@@ -246,11 +258,11 @@ class Client:
 
     def execute(
         self,
-        requests: list[TransparentRequest],
+        requests: Sequence[TransparentRequest],
         timeout: float,
         retries: int,
         return_exceptions: bool = False,
-    ) -> "Future[List[TransparentResponse]]":
+    ) -> "Future[List[TransparentResponse | BaseException]]":
         """Helper to perform multiple requests in parallel."""
         return asyncio.gather(
             *[
@@ -281,9 +293,9 @@ class Client:
                     "Cancelling existing in-flight request and replacing: %s", request
                 )
                 existing_response_future.cancel()
-            response_future: Future[
-                TransparentResponse
-            ] = asyncio.get_event_loop().create_future()
+            response_future: Future[TransparentResponse] = (
+                asyncio.get_event_loop().create_future()
+            )
             self.expected_responses[expected_shape_hash] = response_future
 
             frame_sent = asyncio.get_event_loop().create_future()
