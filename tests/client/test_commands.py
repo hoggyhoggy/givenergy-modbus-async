@@ -4,6 +4,7 @@ import pytest
 from givenergy_modbus.client.client import Client
 from givenergy_modbus.client.commands import RegisterMap
 from givenergy_modbus.model import TimeSlot
+from givenergy_modbus.model.inverter import BatteryPauseMode
 from givenergy_modbus.pdu import WriteHoldingRegisterRequest
 
 client = Client('foo', 1234)
@@ -62,7 +63,15 @@ async def test_set_battery_discharge_mode():
         WriteHoldingRegisterRequest(RegisterMap.BATTERY_POWER_MODE, 1)
     ]
 
-
+def test_set_battery_pause_mode():
+    """Test battery_pause_mode"""
+    assert commands.set_battery_pause_mode(BatteryPauseMode.DISABLED) == [WriteHoldingRegisterRequest(RegisterMap.BATTERY_PAUSE_MODE, 0)]
+    assert commands.set_battery_pause_mode(BatteryPauseMode.PAUSE_CHARGE) == [WriteHoldingRegisterRequest(RegisterMap.BATTERY_PAUSE_MODE, 1)]
+    assert commands.set_battery_pause_mode(BatteryPauseMode.PAUSE_DISCHARGE) == [WriteHoldingRegisterRequest(RegisterMap.BATTERY_PAUSE_MODE, 2)]
+    assert commands.set_battery_pause_mode(BatteryPauseMode.PAUSE_BOTH) == [WriteHoldingRegisterRequest(RegisterMap.BATTERY_PAUSE_MODE, 3)]
+    with pytest.raises(ValueError, match=r'Battery pause mode \(5\) must be in \[0-3\]'):
+        commands.set_battery_pause_mode(5)
+                                                                            
 @pytest.mark.parametrize('action', ('charge', 'discharge'))
 @pytest.mark.parametrize('slot', (1, 2))
 @pytest.mark.parametrize('hour1', (0, 23))
