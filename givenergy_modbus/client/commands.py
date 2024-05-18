@@ -25,42 +25,6 @@ from ..pdu import (
     WriteHoldingRegisterRequest,
 )
 
-# TODO: This list is deprecated. Use write_named_register() to find the
-# register number from the master list in the inverter and perform
-# validity checks.
-
-
-class RegisterMap:
-    """Mapping of holding register function to location."""
-
-    ENABLE_CHARGE_TARGET = 20
-    BATTERY_POWER_MODE = 27
-    SOC_FORCE_ADJUST = 29
-    CHARGE_SLOT_2_START = 31
-    CHARGE_SLOT_2_END = 32
-    SYSTEM_TIME_YEAR = 35
-    SYSTEM_TIME_MONTH = 36
-    SYSTEM_TIME_DAY = 37
-    SYSTEM_TIME_HOUR = 38
-    SYSTEM_TIME_MINUTE = 39
-    SYSTEM_TIME_SECOND = 40
-    DISCHARGE_SLOT_2_START = 44
-    DISCHARGE_SLOT_2_END = 45
-    ACTIVE_POWER_RATE = 50
-    DISCHARGE_SLOT_1_START = 56
-    DISCHARGE_SLOT_1_END = 57
-    ENABLE_DISCHARGE = 59
-    CHARGE_SLOT_1_START = 94
-    CHARGE_SLOT_1_END = 95
-    ENABLE_CHARGE = 96
-    BATTERY_SOC_RESERVE = 110
-    BATTERY_CHARGE_LIMIT = 111
-    BATTERY_DISCHARGE_LIMIT = 112
-    BATTERY_DISCHARGE_MIN_POWER_RESERVE = 114
-    CHARGE_TARGET_SOC = 116
-    REBOOT = 163
-    BATTERY_PAUSE_MODE = 318
-
 
 class Commands:
     """High-level methods for interacting with a remote system."""
@@ -121,41 +85,39 @@ class Commands:
     def disable_charge_target(self) -> list[TransparentRequest]:
         """Removes SOC limit and target 100% charging."""
         return [
-            WriteHoldingRegisterRequest(RegisterMap.ENABLE_CHARGE_TARGET, False),
-            WriteHoldingRegisterRequest(RegisterMap.CHARGE_TARGET_SOC, 100),
+            self.write_named_register('enable_charge_target', False),
+            self.write_named_register('charge_target_soc', 100),
         ]
 
     def set_charge_target(self, target_soc: int) -> list[TransparentRequest]:
         """Sets inverter to stop charging when SOC reaches the desired level. Also referred to as "winter mode"."""
-        if not 4 <= target_soc <= 100:
-            raise ValueError(f"Charge Target SOC ({target_soc}) must be in [4-100]%")
         ret = self.set_enable_charge(True)
         if target_soc == 100:
             ret.extend(self.disable_charge_target())
         else:
             ret.append(
-                WriteHoldingRegisterRequest(RegisterMap.ENABLE_CHARGE_TARGET, True)
+                self.write_named_register('enable_charge_target', True),
             )
             ret.append(
-                WriteHoldingRegisterRequest(RegisterMap.CHARGE_TARGET_SOC, target_soc)
+                self.write_named_register('charge_target_soc', target_soc),
             )
         return ret
 
     def set_enable_charge(self, enabled: bool) -> list[TransparentRequest]:
         """Enable the battery to charge, depending on the mode and slots set."""
-        return [WriteHoldingRegisterRequest(RegisterMap.ENABLE_CHARGE, enabled)]
+        return [self.write_named_register('enable_charge', enabled)]
 
     def set_enable_discharge(self, enabled: bool) -> list[TransparentRequest]:
         """Enable the battery to discharge, depending on the mode and slots set."""
-        return [WriteHoldingRegisterRequest(RegisterMap.ENABLE_DISCHARGE, enabled)]
+        return [self.write_named_register('enable_discharge', enabled)]
 
     def set_inverter_reboot(self) -> list[TransparentRequest]:
         """Restart the inverter."""
-        return [WriteHoldingRegisterRequest(RegisterMap.REBOOT, 100)]
+        return [self.write_named_register('inverter_reboot', 100)]
 
     def set_calibrate_battery_soc(self) -> list[TransparentRequest]:
         """Set the inverter to recalibrate the battery state of charge estimation."""
-        return [WriteHoldingRegisterRequest(RegisterMap.SOC_FORCE_ADJUST, 1)]
+        return [self.write_named_register('soc_force_adjust', 1)]
 
     @deprecated("use set_enable_charge(True) instead")
     def enable_charge(self) -> list[TransparentRequest]:
@@ -179,11 +141,11 @@ class Commands:
 
     def set_discharge_mode_max_power(self) -> list[TransparentRequest]:
         """Set the battery discharge mode to maximum power, exporting to the grid if it exceeds load demand."""
-        return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_POWER_MODE, 0)]
+        return [self.write_named_register('battery_power_mode', 0)]
 
     def set_discharge_mode_to_match_demand(self) -> list[TransparentRequest]:
         """Set the battery discharge mode to match demand, avoiding exporting power to the grid."""
-        return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_POWER_MODE, 1)]
+        return [self.write_named_register('battery_power_mode', 1)]
 
     @deprecated("Use set_battery_soc_reserve(val) instead")
     def set_shallow_charge(self, val: int) -> list[TransparentRequest]:
@@ -193,64 +155,38 @@ class Commands:
     def set_battery_soc_reserve(self, val: int) -> list[TransparentRequest]:
         """Set the minimum level of charge to maintain."""
         # TODO what are valid values? 4-100?
-        val = int(val)
-        if not 4 <= val <= 100:
-            raise ValueError(
-                f"Minimum SOC / shallow charge ({val}) must be in [4-100]%"
-            )
-        return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_SOC_RESERVE, val)]
+        return [self.write_named_register('battery_soc_reserve', val)]
 
     def set_battery_charge_limit(self, val: int) -> list[TransparentRequest]:
         """Set the battery charge power limit as percentage. 50% (2.6 kW) is the maximum for most inverters."""
-        val = int(val)
-        if not 0 <= val <= 50:
-            raise ValueError(f"Specified Charge Limit ({val}%) is not in [0-50]%")
-        return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_CHARGE_LIMIT, val)]
+        return [self.write_named_register('battery_charge_limit', val)]
 
     def set_battery_discharge_limit(self, val: int) -> list[TransparentRequest]:
         """Set the battery discharge power limit as percentage. 50% (2.6 kW) is the maximum for most inverters."""
-        val = int(val)
-        if not 0 <= val <= 50:
-            raise ValueError(f"Specified Discharge Limit ({val}%) is not in [0-50]%")
-        return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_DISCHARGE_LIMIT, val)]
+        return [self.write_named_register('battery_discharge_limit', val)]
 
     def set_battery_power_reserve(self, val: int) -> list[TransparentRequest]:
         """Set the battery power reserve to maintain."""
-        # TODO what are valid values?
-        val = int(val)
-        if not 4 <= val <= 100:
-            raise ValueError(f"Battery power reserve ({val}) must be in [4-100]%")
-        return [
-            WriteHoldingRegisterRequest(
-                RegisterMap.BATTERY_DISCHARGE_MIN_POWER_RESERVE, val
-            )
-        ]
+        return [self.write_named_register('battery_discharge_min_power_reserve', val)]
 
     def set_battery_pause_mode(self, val: BatteryPauseMode) -> list[TransparentRequest]:
         """Set the battery pause mode."""
-        if not 0 <= val <= 3:
-            raise ValueError(f"Battery pause mode ({val}) must be in [0-3]")
-        return [WriteHoldingRegisterRequest(RegisterMap.BATTERY_PAUSE_MODE, val)]
+        return [self.write_named_register('battery_pause_mode', val)]
 
     def _set_charge_slot(
         self, discharge: bool, idx: int, slot: Optional[TimeSlot]
     ) -> list[TransparentRequest]:
-        hr_start, hr_end = (
-            getattr(
-                RegisterMap, f'{"DIS" if discharge else ""}CHARGE_SLOT_{idx}_START'
-            ),
-            getattr(RegisterMap, f'{"DIS" if discharge else ""}CHARGE_SLOT_{idx}_END'),
-        )
+        chdis = 'discharge' if discharge else 'charge'
         if slot:
-            return [
-                WriteHoldingRegisterRequest(hr_start, int(slot.start.strftime("%H%M"))),
-                WriteHoldingRegisterRequest(hr_end, int(slot.end.strftime("%H%M"))),
-            ]
+            start = slot.start.hour * 100 + slot.start.minute
+            end = slot.end.hour * 100 + slot.end.minute
         else:
-            return [
-                WriteHoldingRegisterRequest(hr_start, 0),
-                WriteHoldingRegisterRequest(hr_end, 0),
-            ]
+            start = 0
+            end = 0
+        return [
+            self.write_named_register(f"{chdis}_slot_{idx}_start", start),
+            self.write_named_register(f"{chdis}_slot_{idx}_end", end),
+        ]
 
     def set_charge_slot_1(self, timeslot: TimeSlot) -> list[TransparentRequest]:
         """Set first charge slot start & end times."""
@@ -284,15 +220,26 @@ class Commands:
         """Reset second discharge slot to zero/disabled."""
         return self._set_charge_slot(True, 2, None)
 
+    # TODO: this needs a bit more finesse
+    # client.exec() does everything in parallel, and therefore in random
+    # order. Will take several elapsed seconds to send all the components.
+    # If either new or target seconds is close to 60, then the minutes
+    # may not end up set correctly.
+    # Should probably accept dt of None to means "now", and then it can
+    # do things in a suitable order to ensure that the target time is
+    # properly synchronised (eg send seconds first, unless it's close
+    # to 60, in which case maybe send year/month/day, then wait for seconds
+    # to wrap, then send hour/min/sec
+
     def set_system_date_time(self, dt: datetime) -> list[TransparentRequest]:
         """Set the date & time of the inverter."""
         return [
-            WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_YEAR, dt.year - 2000),
-            WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_MONTH, dt.month),
-            WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_DAY, dt.day),
-            WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_HOUR, dt.hour),
-            WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_MINUTE, dt.minute),
-            WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_SECOND, dt.second),
+            self.write_named_register("system_time_year", dt.year - 2000),
+            self.write_named_register("system_time_month", dt.month),
+            self.write_named_register("system_time_day", dt.day),
+            self.write_named_register("system_time_hour", dt.hour),
+            self.write_named_register("system_time_minute", dt.minute),
+            self.write_named_register("system_time_second", dt.second),
         ]
 
     def set_mode_dynamic(self) -> list[TransparentRequest]:
