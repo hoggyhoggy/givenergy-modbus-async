@@ -8,16 +8,20 @@ They simply prepare sequences of requests that need to be sent using
 the client.
 """
 
+import logging
 from datetime import datetime
-from typing import Optional
+from textwrap import dedent
+from typing import Any, Callable, Optional
 from typing_extensions import deprecated  # type: ignore[attr-defined]
+
+# TODO: move DynamicDoc somewhere more generic
 
 from .client import Client
 from ..model import TimeSlot
 from ..model.inverter import (
     Inverter,
-    BatteryPauseMode,
 )
+from ..model.register import DynamicDoc
 from ..pdu import (
     ReadHoldingRegistersRequest,
     ReadInputRegistersRequest,
@@ -25,9 +29,14 @@ from ..pdu import (
     WriteHoldingRegisterRequest,
 )
 
+_logger = logging.getLogger(__name__)
 
-class Commands:
-    """High-level methods for interacting with a remote system."""
+
+class Commands(metaclass=DynamicDoc):
+    # pylint: disable=missing-class-docstring
+    # The metaclass turns accesses to __doc__ into calls to _gendoc()
+
+    _DOC = """High-level methods for interacting with a remote system."""
 
     def __init__(self, client: Client):
         self.client = client
@@ -39,6 +48,63 @@ class Commands:
         """Prepare a request to write to a register."""
         idx = Inverter.lookup_writable_register(name, value)
         return WriteHoldingRegisterRequest(idx, value)
+
+    # rather than writing lots of trivial setter methods,
+    # this translates implicit commands into calls to helpers:
+    #   commands.set_xyz(value) -> commands._set_helper('xyz', value)
+    #   commands.reset_XXX_slot_N() -> commands._set_timeslot('XXX_slot_N', None)
+    # If 'value' is a Timeslot, _set_helper(name) calls _set_timeslot(name)
+    #
+    # Invoking commands.xyz(value) is a two-step process:
+    #  callable = getattr(commands, 'xyz')
+    #  callable(value)
+    # so __getattr__ returns a lambda that supplies the name and
+    # takes the value as a parameter.
+
+    def __getattr__(self, name: str) -> Callable:
+        """Fabricate a set_xyz() or reset_x_slot_y() method."""
+        if name.startswith("reset_") and "_slot" in name:
+            if name[6:] in Inverter.REGISTER_LUT:
+                return lambda: self._set_timeslot(name[6:], None)
+        elif name.startswith("set_"):
+            if name[4:] in Inverter.REGISTER_LUT:
+                return lambda value: self._set_helper(name[4:], value)
+        raise AttributeError(f"No {name} in {__name__}")
+
+    # This is a generic register setter, usually invokved via __getattr__
+
+    def _set_helper(self, name: str, value: Any) -> list[TransparentRequest]:
+        """Helper for anonymous commands.
+
+        Usually equivalent to [ write_named_register() ], unless value
+        is a TimeSlot, in which case it calls _set_timeslot().
+        """
+        _logger.debug("commands._set_helper: %s %s", name, value)
+        if isinstance(value, TimeSlot):
+            return self._set_timeslot(name, value)
+        # Otherwise just a single register access
+        return [self.write_named_register(name, int(value))]
+
+    # A helper to write a timeslot to a pair of adjacent time registers
+    # Assumes the time registers are called {name}_start and {name}_end
+
+    def _set_timeslot(
+        self, name: str, value: TimeSlot | None
+    ) -> list[TransparentRequest]:
+        """Set a pair of start/end time slots.
+
+        A value of None is interpreted to mean TimeSlot(0,0,0,0).
+        """
+        if value is None:
+            start = 0
+            end = 0
+        else:
+            start = 100 * value.start.hour + value.start.minute
+            end = 100 * value.end.hour + value.end.minute
+        return [
+            self.write_named_register(name + "_start", start),
+            self.write_named_register(name + "_end", end),
+        ]
 
     def refresh_plant_data(
         self, complete: bool, number_batteries: int = 1, max_batteries: int = 5
@@ -103,14 +169,6 @@ class Commands:
             )
         return ret
 
-    def set_enable_charge(self, enabled: bool) -> list[TransparentRequest]:
-        """Enable the battery to charge, depending on the mode and slots set."""
-        return [self.write_named_register('enable_charge', enabled)]
-
-    def set_enable_discharge(self, enabled: bool) -> list[TransparentRequest]:
-        """Enable the battery to discharge, depending on the mode and slots set."""
-        return [self.write_named_register('enable_discharge', enabled)]
-
     def set_inverter_reboot(self) -> list[TransparentRequest]:
         """Restart the inverter."""
         return [self.write_named_register('inverter_reboot', 100)]
@@ -151,74 +209,6 @@ class Commands:
     def set_shallow_charge(self, val: int) -> list[TransparentRequest]:
         """Set the minimum level of charge to maintain."""
         return self.set_battery_soc_reserve(val)
-
-    def set_battery_soc_reserve(self, val: int) -> list[TransparentRequest]:
-        """Set the minimum level of charge to maintain."""
-        # TODO what are valid values? 4-100?
-        return [self.write_named_register('battery_soc_reserve', val)]
-
-    def set_battery_charge_limit(self, val: int) -> list[TransparentRequest]:
-        """Set the battery charge power limit as percentage. 50% (2.6 kW) is the maximum for most inverters."""
-        return [self.write_named_register('battery_charge_limit', val)]
-
-    def set_battery_discharge_limit(self, val: int) -> list[TransparentRequest]:
-        """Set the battery discharge power limit as percentage. 50% (2.6 kW) is the maximum for most inverters."""
-        return [self.write_named_register('battery_discharge_limit', val)]
-
-    def set_battery_power_reserve(self, val: int) -> list[TransparentRequest]:
-        """Set the battery power reserve to maintain."""
-        return [self.write_named_register('battery_discharge_min_power_reserve', val)]
-
-    def set_battery_pause_mode(self, val: BatteryPauseMode) -> list[TransparentRequest]:
-        """Set the battery pause mode."""
-        return [self.write_named_register('battery_pause_mode', val)]
-
-    def _set_charge_slot(
-        self, discharge: bool, idx: int, slot: Optional[TimeSlot]
-    ) -> list[TransparentRequest]:
-        chdis = 'discharge' if discharge else 'charge'
-        if slot:
-            start = slot.start.hour * 100 + slot.start.minute
-            end = slot.end.hour * 100 + slot.end.minute
-        else:
-            start = 0
-            end = 0
-        return [
-            self.write_named_register(f"{chdis}_slot_{idx}_start", start),
-            self.write_named_register(f"{chdis}_slot_{idx}_end", end),
-        ]
-
-    def set_charge_slot_1(self, timeslot: TimeSlot) -> list[TransparentRequest]:
-        """Set first charge slot start & end times."""
-        return self._set_charge_slot(False, 1, timeslot)
-
-    def reset_charge_slot_1(self) -> list[TransparentRequest]:
-        """Reset first charge slot to zero/disabled."""
-        return self._set_charge_slot(False, 1, None)
-
-    def set_charge_slot_2(self, timeslot: TimeSlot) -> list[TransparentRequest]:
-        """Set second charge slot start & end times."""
-        return self._set_charge_slot(False, 2, timeslot)
-
-    def reset_charge_slot_2(self) -> list[TransparentRequest]:
-        """Reset second charge slot to zero/disabled."""
-        return self._set_charge_slot(False, 2, None)
-
-    def set_discharge_slot_1(self, timeslot: TimeSlot) -> list[TransparentRequest]:
-        """Set first discharge slot start & end times."""
-        return self._set_charge_slot(True, 1, timeslot)
-
-    def reset_discharge_slot_1(self) -> list[TransparentRequest]:
-        """Reset first discharge slot to zero/disabled."""
-        return self._set_charge_slot(True, 1, None)
-
-    def set_discharge_slot_2(self, timeslot: TimeSlot) -> list[TransparentRequest]:
-        """Set second discharge slot start & end times."""
-        return self._set_charge_slot(True, 2, timeslot)
-
-    def reset_discharge_slot_2(self) -> list[TransparentRequest]:
-        """Reset second discharge slot to zero/disabled."""
-        return self._set_charge_slot(True, 2, None)
 
     # TODO: this needs a bit more finesse
     # client.exec() does everything in parallel, and therefore in random
@@ -291,3 +281,30 @@ class Commands:
         else:
             ret.extend(self.reset_discharge_slot_2())
         return ret
+
+    # This is invoked when __doc__ is accessed.
+    @classmethod
+    def _gendoc(cls):
+        """Construct a docstring from fixed prefix and register list."""
+
+        doc = cls._DOC + dedent(
+            """
+
+        In addition to the explicitly defined methods, the following list was
+        automatically generated from the register definition list. They are
+        fabricated at runtime via ``__getattr__``.
+        Note that the actual set of commands available depends on the inverter
+        model.
+
+        Because these attributes are not listed in ``__dict__`` they may not be
+        visible to all python tools.
+        Some appear multiple times as aliases.\n\n"""
+        )
+
+        for reg, defn in Inverter.REGISTER_LUT.items():
+            if defn.valid is not None:
+                doc += '* set_' + reg + "()\n"
+                if '_slot_' in reg and reg.endswith('_end'):
+                    doc += '* set_' + reg[:-4] + "()\n"
+                    doc += '* reset_' + reg[:-4] + "()\n"
+        return doc
