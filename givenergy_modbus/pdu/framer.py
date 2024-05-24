@@ -2,8 +2,8 @@ import logging
 from abc import ABC
 from typing import ClassVar, Iterator, Union
 
-from .exceptions import ExceptionBase, InvalidFrame, InvalidPduState
-from .pdu import (
+from ..exceptions import ExceptionBase, InvalidFrame, InvalidPduState
+from . import (
     BasePDU,
     TransparentRequest,
     TransparentResponse,

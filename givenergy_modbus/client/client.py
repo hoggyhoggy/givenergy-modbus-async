@@ -9,11 +9,8 @@ from ..exceptions import (
     CommunicationError,
     ExceptionBase,
 )
-from ..framer import (
-    ClientFramer,
-    Framer,
-)
 from ..model.plant import Plant
+from ..pdu.framer import ClientFramer, Framer
 from ..pdu import (
     HeartbeatRequest,
     TransparentRequest,

@@ -1,7 +1,7 @@
 import logging
 from abc import ABC
 
-from ..codec import PayloadDecoder
+from .codec import PayloadDecoder
 from .base import BasePDU
 
 _logger = logging.getLogger(__name__)

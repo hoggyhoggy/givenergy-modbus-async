@@ -31,7 +31,7 @@ from enum import Flag, auto
 import logging
 from typing import Any, ClassVar, Iterator, Sequence
 
-from ..codec import PayloadDecoder
+from .codec import PayloadDecoder
 from ..exceptions import InvalidFrame, InvalidPduState
 from .base import BasePDU
 from ..model.register import Register, HR, IR

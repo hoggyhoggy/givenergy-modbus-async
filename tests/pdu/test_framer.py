@@ -5,7 +5,7 @@ from typing import Any, Optional, Union
 import pytest
 
 from givenergy_modbus.exceptions import ExceptionBase
-from givenergy_modbus.framer import ClientFramer, Framer, ServerFramer
+from givenergy_modbus.pdu.framer import ClientFramer, Framer, ServerFramer
 from givenergy_modbus.pdu import (
     BasePDU,
     HeartbeatRequest,
@@ -174,7 +174,7 @@ def test_various_short_message_buffers(caplog, buffer):
     results = []
 
     for i in range(len(buffer)):
-        with caplog.at_level(logging.DEBUG, logger='givenergy_modbus.framer'):
+        with caplog.at_level(logging.DEBUG, logger='givenergy_modbus.pdu.framer'):
             for result in framer.decode(buffer[:i]):
                 results.append(result)
         assert results == []

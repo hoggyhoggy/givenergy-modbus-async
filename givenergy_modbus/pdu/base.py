@@ -3,7 +3,7 @@ import struct
 from abc import ABC
 from typing import ClassVar
 
-from ..codec import (
+from .codec import (
     PayloadDecoder,
     PayloadEncoder,
 )
