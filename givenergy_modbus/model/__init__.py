@@ -32,6 +32,8 @@ class DefaultUnknownIntEnum(IntEnum):
 class TimeSlot:
     """Dataclass to represent a time slot, with a start and end time."""
 
+    # TODO perhaps just store as GE integers - (h * 100 + m) and
+    # convert to time on demand (making start and end properties ?)
     start: time
     end: time
 
@@ -54,3 +56,26 @@ class TimeSlot:
         end_hour = int(end[:-2])
         end_minute = int(end[-2:])
         return cls(time(start_hour, start_minute), time(end_hour, end_minute))
+
+    def __contains__(self, t: time|int) -> bool:
+        """Implements 'in' operator.
+
+        Parameter is either a time, or an integer in (hours * 100 + minute) format.
+        """
+
+        if self.start == self.end:
+            return False
+
+        if isinstance(t, int):
+            t = time(t // 100, t % 100)
+        elif not isinstance(t, time):
+            # TODO throw an exception?  Return NotImplemented?
+            return False
+
+        # now "inside" depends on whether the timeslot
+        # spans midnight
+
+        if self.start < self.end:
+            return self.start <= t < self.end
+        else:
+            return not (self.end <= t < self.start)
