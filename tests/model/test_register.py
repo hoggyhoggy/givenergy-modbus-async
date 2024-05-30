@@ -61,6 +61,8 @@ def test_register():
     assert HR(0) != IR(0)
     assert {HR(0): 1, IR(1): 2} == {HR(0): 1, IR(1): 2}
     assert {HR(0): 1, IR(1): 2} != {HR(1): 1, IR(2): 2}
+    assert HR(1000) == HR(1000)
+    assert HR(318) == HR(318)
 
     assert str(HR(22)) == 'HR_22'
     assert str(IR(99)) == 'IR_99'

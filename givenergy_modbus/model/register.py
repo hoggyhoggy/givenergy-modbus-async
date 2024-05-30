@@ -300,7 +300,7 @@ class Register:
 
     # this assumes HR and IR are not subclassed.
     def __eq__(self, other):
-        return type(self) is type(other) and self._idx is other._idx
+        return type(self) is type(other) and self._idx == other._idx
 
     def __int__(self):
         return self._idx
