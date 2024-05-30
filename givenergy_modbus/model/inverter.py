@@ -460,7 +460,7 @@ class Inverter(RegisterGetter, metaclass=DynamicDoc):
         "work_time_total": Def(C.uint32, None, IR(47), IR(48)),
         "system_mode": Def(C.uint16, None, IR(49)),
         "v_battery": Def(C.centi, None, IR(50)),
-        "i_battery": Def(C.int16, C.centi, None, IR(51)),
+        "i_battery": Def(C.centi, None, IR(51)),
         "p_battery": Def(C.int16, None, IR(52)),
         "v_eps_backup": Def(C.deci, None, IR(53)),
         "f_eps_backup": Def(C.centi, None, IR(54)),
