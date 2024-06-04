@@ -70,3 +70,34 @@ def test_timeslot():
         assert ts == TimeSlot.from_repr(4321, 5432)
     with pytest.raises(ValueError, match='hour must be in 0..23'):
         assert ts == TimeSlot.from_repr('4321', '5432')
+
+    ts = TimeSlot(datetime.time(0, 30), datetime.time(0, 40))
+    assert 29 not in ts
+    assert 30 in ts
+    assert 39 in ts
+    assert 40 not in ts
+    assert datetime.time(0, 29) not in ts
+    assert datetime.time(0, 30) in ts
+    assert datetime.time(0, 39) in ts
+    assert datetime.time(0, 40) not in ts
+    
+    ts = TimeSlot(datetime.time(11, 30), datetime.time(13, 40))
+    assert 1129 not in ts
+    assert 1131 in ts
+    assert 1200 in ts
+    assert 1339 in ts
+    assert 1340 not in ts
+    assert datetime.time(0, 29) not in ts
+    assert datetime.time(11, 29) not in ts
+    assert datetime.time(11, 31) in ts
+    assert datetime.time(12, 00) in ts
+    assert datetime.time(13, 00) in ts
+    assert datetime.time(13, 40) not in ts
+
+    ts = TimeSlot(datetime.time(23, 30), datetime.time(5, 30))
+    assert 2329 not in ts
+    assert 2331 in ts
+    assert 2359 in ts
+    assert 0 in ts
+    assert 529 in ts
+    assert 530 not in ts

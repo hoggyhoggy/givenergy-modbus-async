@@ -1,7 +1,10 @@
 """High-level methods for interacting with a remote system.
 
-Note that these don't actually send requests to the inverter.
-They simply prepare lists of requests that need to be sent using
+NOTE: it is no longer intended that applications import this
+directly. Instead, they should access commands via client.commands
+
+These don't actually send requests to the inverter.
+They simply prepare sequences of requests that need to be sent using
 the client.
 """
 

@@ -1,4 +1,3 @@
-import datetime
 import json
 from typing import DefaultDict, Optional
 
@@ -7,8 +6,6 @@ from .register import (
     IR,
     Register,
 )
-
-from ..model import TimeSlot
 
 
 class RegisterCache(DefaultDict[Register, int]):
@@ -47,51 +44,3 @@ class RegisterCache(DefaultDict[Register, int]):
             return ret
 
         return cls(registers=(json.loads(data, object_hook=register_object_hook)))
-
-    # helper methods to convert register data types
-
-    def to_string(self, *registers: Register) -> str:
-        """Combine registers into an ASCII string."""
-        s = "".join(
-            [
-                self[r].to_bytes(2, byteorder="big").decode(encoding="latin1")
-                for r in registers
-            ]
-        )
-        return "".join(filter(str.isalnum, s)).upper()
-
-    def to_hex_string(self, *registers: Register) -> str:
-        """Render a register as a 2-byte hexadecimal value."""
-        values = [f"{self[r]:04x}" for r in registers]
-        if all(values):
-            ret = ""
-            for r in registers:
-                ret += f"{self[r]:04x}"
-            return "".join(filter(str.isalnum, ret)).upper()
-        return ""
-
-    def to_duint8(self, *registers: Register) -> tuple[int, ...]:
-        """Split registers into two unsigned 8-bit integers each."""
-        return sum(((self[r] >> 8, self[r] & 0xFF) for r in registers), ())
-
-    def to_uint32(self, high_register: Register, low_register: Register) -> int:
-        """Combine two registers into an unsigned 32-bit integer."""
-        return (self[high_register] << 16) + self[low_register]
-
-    def to_datetime(
-        self,
-        y: Register,
-        m: Register,
-        d: Register,
-        h: Register,
-        min: Register,
-        s: Register,
-    ):
-        """Combine 6 registers into a datetime, with safe defaults for zeroes."""
-        return datetime.datetime(
-            self[y] + 2000, self.get(m, 1), self.get(d, 1), self[h], self[min], self[s]
-        )
-
-    def to_timeslot(self, start: Register, end: Register) -> "TimeSlot":
-        """Combine two registers into a time slot."""
-        return TimeSlot.from_repr(self[start], self[end])

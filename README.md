@@ -31,12 +31,14 @@ device:
 
 ```python
 import datetime
-import givenergy_modbus.commands as commands
-from givenergy_modbus.client import Client
+from givenergy_modbus.client.client import Client
 from givenergy_modbus.model.plant import Plant, Inverter
 
 client = Client(host="192.168.99.99")
 await client.connect()
+
+# note - importing givenergy_modbus.client.commands is now deprecated
+commands = client.commands
 
 await client.exec(commands.enable_charge_target(80))
 # set a charging slot from 00:30 to 04:30

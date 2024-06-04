@@ -1,8 +1,9 @@
 import asyncio
+from io import BufferedIOBase
 import logging
 import socket
 from asyncio import Future, Queue, StreamReader, StreamWriter, Task
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from . import commands
 from ..exceptions import (
@@ -30,27 +31,31 @@ class Client:
     framer: Framer
     expected_responses: "Dict[int, Future[TransparentResponse]]" = {}
     plant: Plant
-    # refresh_count: int = 0
-    # debug_frames: Dict[str, Queue]
     connected = False
     reader: StreamReader
     writer: StreamWriter
     network_consumer_task: Task
     network_producer_task: Task
+    recorder: Optional[BufferedIOBase]
 
     tx_queue: "Queue[Tuple[bytes, Optional[Future]]]"
 
-    def __init__(self, host: str, port: int, connect_timeout: float = 2.0) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        connect_timeout: float = 2.0,
+        recorder: Optional[BufferedIOBase] = None,
+    ) -> None:
         self.host = host
         self.port = port
         self.connect_timeout = connect_timeout
         self.framer = ClientFramer()
         self.plant = Plant()
         self.tx_queue = Queue(maxsize=20)
-        # self.debug_frames = {
-        #     'all': Queue(maxsize=1000),
-        #     'error': Queue(maxsize=1000),
-        # }
+
+        # optionally record all received data to a file
+        self.recorder = recorder
 
     async def connect(self) -> None:
         """Connect to the remote host and start background tasks."""
@@ -71,7 +76,6 @@ class Client:
         self.network_producer_task = asyncio.create_task(
             self._task_network_producer(), name="network_producer"
         )
-        # asyncio.create_task(self._task_dump_queues_to_files(), name='dump_queues_to_files'),
         self.connected = True
         _logger.info("Connection established to %s:%d", self.host, self.port)
 
@@ -107,10 +111,6 @@ class Client:
             del self.reader
 
         self.expected_responses = {}
-        # self.debug_frames = {
-        #     'all': Queue(maxsize=1000),
-        #     'error': Queue(maxsize=1000),
-        # }
 
     async def refresh_plant(
         self,
@@ -120,7 +120,7 @@ class Client:
         retries: int = 0,
     ) -> Plant:
         """Refresh data about the Plant."""
-        reqs = commands.refresh_plant_data(
+        reqs = self.commands.refresh_plant_data(
             full_refresh, self.plant.number_batteries, max_batteries
         )
         await self.execute(reqs, timeout=timeout, retries=retries)
@@ -129,6 +129,16 @@ class Client:
             self.plant.detect_batteries()
 
         return self.plant
+
+    # For now, client.commands just returns a reference to
+    # the commands module. Later, it will return an instance
+    # of some class which has access to the plant, since
+    # commands will need to validated against the particular
+    # model of device the client is attached to.
+    @property
+    def commands(self):
+        """Access to the library of commands."""
+        return commands
 
     async def watch_plant(
         self,
@@ -148,18 +158,19 @@ class Client:
                 handler()
             await asyncio.sleep(refresh_period)
             if not passive:
-                reqs = commands.refresh_plant_data(False, self.plant.number_batteries)
+                reqs = self.commands.refresh_plant_data(
+                    False, self.plant.number_batteries
+                )
                 await self.execute(
                     reqs, timeout=timeout, retries=retries, return_exceptions=True
                 )
 
     async def one_shot_command(
-        self, requests: list[TransparentRequest], timeout=1.5, retries=0
+        self, requests: Sequence[TransparentRequest], timeout=1.5, retries=0
     ) -> None:
         """Run a single set of requests and return."""
         await self.connect()
         await self.execute(requests, timeout=timeout, retries=retries)
-
 
     # The i/o activity is co-ordinated by two background tasks:
     # - the consumer reads from the socket, responds to heartbeat requests,
@@ -186,12 +197,12 @@ class Client:
     #  client.exec() takes an array of requests, and creates one coroutine per request, to run
     #  send_request_and_await_response in parallel. They happen in random order ?
 
-
     async def _task_network_consumer(self):
         """Task for orchestrating incoming data."""
         while hasattr(self, "reader") and self.reader and not self.reader.at_eof():
             frame = await self.reader.read(300)
-            # await self.debug_frames['all'].put(frame)
+            if self.recorder:
+                self.recorder.write(frame)
             for message in self.framer.decode(frame):
                 _logger.debug("Processing %s", message)
                 if isinstance(message, ExceptionBase):
@@ -205,6 +216,9 @@ class Client:
                     await self.tx_queue.put(
                         (message.expected_response().encode(), None)
                     )
+                    if self.recorder:
+                        # an opportunity to flush to file, since these arrive regularly
+                        self.recorder.flush()
                     continue
                 if not isinstance(message, TransparentResponse):
                     _logger.warning(
@@ -221,11 +235,7 @@ class Client:
 
                 if future and not future.done():
                     future.set_result(message)
-                # try:
                 self.plant.update(message)
-                # except RegisterCacheUpdateFailed as e:
-                #     # await self.debug_frames['error'].put(frame)
-                #     _logger.debug(f'Ignoring {message}: {e}')
         _logger.debug(
             "network_consumer reader at EOF, cannot continue, closing connection"
         )
@@ -246,27 +256,13 @@ class Client:
         )
         await self.close()
 
-    # async def _task_dump_queues_to_files(self):
-    #     """Task to periodically dump debug message frames to disk for debugging."""
-    #     while True:
-    #         await asyncio.sleep(30)
-    #         if self.debug_frames:
-    #             os.makedirs('debug', exist_ok=True)
-    #             for name, queue in self.debug_frames.items():
-    #                 if not queue.empty():
-    #                     async with aiofiles.open(f'{os.path.join("debug", name)}_frames.txt', mode='a') as str_file:
-    #                         await str_file.write(f'# {arrow.utcnow().timestamp()}\n')
-    #                         while not queue.empty():
-    #                             item = await queue.get()
-    #                             await str_file.write(item.hex() + '\n')
-
     def execute(
         self,
-        requests: list[TransparentRequest],
+        requests: Sequence[TransparentRequest],
         timeout: float,
         retries: int,
         return_exceptions: bool = False,
-    ) -> "Future[List[TransparentResponse]]":
+    ) -> "Future[List[TransparentResponse | BaseException]]":
         """Helper to perform multiple requests in parallel."""
         return asyncio.gather(
             *[
@@ -297,9 +293,9 @@ class Client:
                     "Cancelling existing in-flight request and replacing: %s", request
                 )
                 existing_response_future.cancel()
-            response_future: Future[
-                TransparentResponse
-            ] = asyncio.get_event_loop().create_future()
+            response_future: Future[TransparentResponse] = (
+                asyncio.get_event_loop().create_future()
+            )
             self.expected_responses[expected_shape_hash] = response_future
 
             frame_sent = asyncio.get_event_loop().create_future()
