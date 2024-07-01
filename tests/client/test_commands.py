@@ -1,11 +1,47 @@
 import arrow
 import pytest
 
-from givenergy_modbus.client import commands
-from givenergy_modbus.client.commands import RegisterMap
+from givenergy_modbus.client.client import Client
 from givenergy_modbus.model import TimeSlot
+from givenergy_modbus.model.inverter import BatteryPauseMode
 from givenergy_modbus.pdu import WriteHoldingRegisterRequest
 
+
+class RegisterMap:
+    """Mapping of holding register function to location."""
+
+    ENABLE_CHARGE_TARGET = 20
+    BATTERY_POWER_MODE = 27
+    SOC_FORCE_ADJUST = 29
+    CHARGE_SLOT_2_START = 243
+    CHARGE_SLOT_2_END = 244
+    SYSTEM_TIME_YEAR = 35
+    SYSTEM_TIME_MONTH = 36
+    SYSTEM_TIME_DAY = 37
+    SYSTEM_TIME_HOUR = 38
+    SYSTEM_TIME_MINUTE = 39
+    SYSTEM_TIME_SECOND = 40
+    DISCHARGE_SLOT_2_START = 44
+    DISCHARGE_SLOT_2_END = 45
+    ACTIVE_POWER_RATE = 50
+    DISCHARGE_SLOT_1_START = 56
+    DISCHARGE_SLOT_1_END = 57
+    ENABLE_DISCHARGE = 59
+    CHARGE_SLOT_1_START = 94
+    CHARGE_SLOT_1_END = 95
+    ENABLE_CHARGE = 96
+    BATTERY_SOC_RESERVE = 110
+    BATTERY_CHARGE_LIMIT = 111
+    BATTERY_DISCHARGE_LIMIT = 112
+    BATTERY_DISCHARGE_MIN_POWER_RESERVE = 114
+    CHARGE_TARGET_SOC = 116
+    REBOOT = 163
+    BATTERY_PAUSE_MODE = 318
+
+
+
+client = Client('foo', 1234)
+commands = client.commands
 
 async def test_configure_charge_target():
     """Ensure we can set and disable a charge target."""
@@ -20,11 +56,11 @@ async def test_configure_charge_target():
         WriteHoldingRegisterRequest(RegisterMap.CHARGE_TARGET_SOC, 100),
     ]
 
-    with pytest.raises(ValueError, match=r'Charge Target SOC \(0\) must be in \[4-100\]\%'):
+    with pytest.raises(ValueError, match=r'0 out of range for charge_target_soc'):
         commands.set_charge_target(0)
-    with pytest.raises(ValueError, match=r'Charge Target SOC \(1\) must be in \[4-100\]\%'):
+    with pytest.raises(ValueError, match=r'1 out of range for charge_target_soc'):
         commands.set_charge_target(1)
-    with pytest.raises(ValueError, match=r'Charge Target SOC \(101\) must be in \[4-100\]\%'):
+    with pytest.raises(ValueError, match=r'101 out of range for charge_target_soc'):
         commands.set_charge_target(101)
 
     assert commands.disable_charge_target() == [
@@ -60,7 +96,15 @@ async def test_set_battery_discharge_mode():
         WriteHoldingRegisterRequest(RegisterMap.BATTERY_POWER_MODE, 1)
     ]
 
-
+def test_set_battery_pause_mode():
+    """Test battery_pause_mode"""
+    assert commands.set_battery_pause_mode(BatteryPauseMode.DISABLED) == [WriteHoldingRegisterRequest(RegisterMap.BATTERY_PAUSE_MODE, 0)]
+    assert commands.set_battery_pause_mode(BatteryPauseMode.PAUSE_CHARGE) == [WriteHoldingRegisterRequest(RegisterMap.BATTERY_PAUSE_MODE, 1)]
+    assert commands.set_battery_pause_mode(BatteryPauseMode.PAUSE_DISCHARGE) == [WriteHoldingRegisterRequest(RegisterMap.BATTERY_PAUSE_MODE, 2)]
+    assert commands.set_battery_pause_mode(BatteryPauseMode.PAUSE_BOTH) == [WriteHoldingRegisterRequest(RegisterMap.BATTERY_PAUSE_MODE, 3)]
+    with pytest.raises(ValueError, match=r'5 out of range for battery_pause_mode'):
+        commands.set_battery_pause_mode(5)
+                                                                            
 @pytest.mark.parametrize('action', ('charge', 'discharge'))
 @pytest.mark.parametrize('slot', (1, 2))
 @pytest.mark.parametrize('hour1', (0, 23))
@@ -145,9 +189,9 @@ async def test_set_charge_and_discharge_limits():
         WriteHoldingRegisterRequest(RegisterMap.BATTERY_DISCHARGE_LIMIT, 50, slave_address=0x11),
     ]
 
-    with pytest.raises(ValueError, match=r'Specified Charge Limit \(51%\) is not in \[0-50\]\%'):
+    with pytest.raises(ValueError, match=r'51 out of range for battery_charge_limit'):
         commands.set_battery_charge_limit(51)
-    with pytest.raises(ValueError, match=r'Specified Discharge Limit \(51%\) is not in \[0-50\]\%'):
+    with pytest.raises(ValueError, match=r'51 out of range for battery_discharge_limit'):
         commands.set_battery_discharge_limit(51)
 
 

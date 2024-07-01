@@ -5,7 +5,6 @@ import socket
 from asyncio import Future, Queue, StreamReader, StreamWriter, Task
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from . import commands
 from ..exceptions import (
     CommunicationError,
     ExceptionBase,
@@ -130,15 +129,14 @@ class Client:
 
         return self.plant
 
-    # For now, client.commands just returns a reference to
-    # the commands module. Later, it will return an instance
-    # of some class which has access to the plant, since
-    # commands will need to validated against the particular
-    # model of device the client is attached to.
     @property
     def commands(self):
         """Access to the library of commands."""
-        return commands
+
+        # defer import until here to avoid circularity
+        from .commands import Commands
+
+        return Commands(self)
 
     async def watch_plant(
         self,
