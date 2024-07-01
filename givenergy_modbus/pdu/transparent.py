@@ -123,8 +123,8 @@ class TransparentMessage(BasePDU):
             if not values or len(values) != self.register_count:
                 raise InvalidPduState("register_values", self)
 
-    def _str_args(self):
-        """Provide the args for __str__. Can be overridden in subclass."""
+    def _repr_args(self):
+        """Provide the args for __repr__. Can be overridden in subclass."""
 
         def format_kv(key, val):
             if val is None:
@@ -157,8 +157,8 @@ class TransparentMessage(BasePDU):
         args = [format_kv(k, v) for k, v in vars(self).items()]
         return ' '.join(a for a in args if a is not None)
 
-    def __str__(self) -> str:
-        args = ("ERROR " if self.error else "") + self._str_args()
+    def __repr__(self) -> str:
+        args = ("ERROR " if self.error else "") + self._repr_args()
         tcf = getattr(self, 'transparent_function_code', '_')
         cls = self.__class__.__name__
         return f"{self.function_code}:{tcf}/{cls}({args})"
@@ -356,8 +356,8 @@ class WriteHoldingRegisterRequest(TransparentRequest):
             raise InvalidPduState("Unexpected register_count parameter", self)
         super().__init__(**kwargs)
 
-    # helper for __str__()
-    def _str_args(self) -> str:
+    # helper for __repr__()
+    def _repr_args(self) -> str:
         reg = self.base_register
         val = self.register_values[0]
         return f"{reg} -> {val}/0x{val:04x}"
@@ -380,7 +380,7 @@ class WriteHoldingRegisterResponse(TransparentResponse):
     register_class = HR
 
     # This is really just for the benefit of pytest
-    def _str_args(self) -> str:
+    def _repr_args(self) -> str:
         reg = self.base_register
         val = self.register_values[0]
         return f"{reg} -> {val}/0x{val:04x}"

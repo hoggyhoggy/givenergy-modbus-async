@@ -16,7 +16,7 @@ class HeartbeatMessage(BasePDU):
         super().__init__(**kwargs)
         self.data_adapter_type: int = kwargs.get("data_adapter_type", 0x00)
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return (
             f"1/{self.__class__.__name__}("
             f"data_adapter_serial_number={self.data_adapter_serial_number} "
