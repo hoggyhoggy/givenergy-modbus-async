@@ -1,5 +1,4 @@
 import logging
-from abc import ABC
 from typing import ClassVar, Iterator, Union
 
 from ..exceptions import ExceptionBase, InvalidFrame, InvalidPduState
@@ -16,7 +15,7 @@ _logger = logging.getLogger(__name__)
 HEADER_START_MARKER: bytes = bytes.fromhex("59590001")
 
 
-class Framer(ABC):
+class Framer:
     """Modbus Framer for parsing the GivEnergy data format.
 
     A framer knows how to unmarshal a wire protocol, in particular detecting if a message frame is likely present in

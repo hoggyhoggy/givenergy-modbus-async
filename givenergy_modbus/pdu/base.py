@@ -1,6 +1,5 @@
 import logging
 import struct
-from abc import ABC
 from typing import ClassVar
 
 from .codec import (
@@ -15,7 +14,7 @@ from ..exceptions import (
 _logger = logging.getLogger(__name__)
 
 
-class BasePDU(ABC):
+class BasePDU:
     """Base of the PDU Message network_timeout_handler class tree.
 
     The Protocol Data Unit (PDU) defines the basic unit of message exchange for Modbus. It is routed to devices with

@@ -1,5 +1,4 @@
 import logging
-from abc import ABC
 
 from .codec import PayloadDecoder
 from .base import BasePDU
@@ -7,7 +6,7 @@ from .base import BasePDU
 _logger = logging.getLogger(__name__)
 
 
-class HeartbeatMessage(BasePDU, ABC):
+class HeartbeatMessage(BasePDU):
     """Root of the hierarchy for 1/Heartbeat function PDUs."""
 
     function_code = 1
@@ -37,7 +36,7 @@ class HeartbeatMessage(BasePDU, ABC):
         return cls(**attrs)
 
 
-class HeartbeatRequest(HeartbeatMessage, ABC):
+class HeartbeatRequest(HeartbeatMessage):
     """PDU sent by remote server to check liveness of client."""
 
     def expected_response(self) -> "HeartbeatResponse":
@@ -45,7 +44,7 @@ class HeartbeatRequest(HeartbeatMessage, ABC):
         return HeartbeatResponse(data_adapter_type=self.data_adapter_type)
 
 
-class HeartbeatResponse(HeartbeatMessage, ABC):
+class HeartbeatResponse(HeartbeatMessage):
     """PDU returned by client (within 5s) to confirm liveness."""
 
     def decode(self, data: bytes):
