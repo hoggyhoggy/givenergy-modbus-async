@@ -6,7 +6,6 @@ supporting enumerations.
 """
 
 from enum import IntEnum, StrEnum
-import math
 from typing import Optional
 from .register import (
     Converter as C,
@@ -50,7 +49,7 @@ class Generation(StrEnum):
             8: cls.GEN2,
             9: cls.GEN2,
         }
-        key = math.floor(int(value) / 100)
+        key = int(value) // 100
         if gen := arm_firmware_version_to_gen.get(key):
             return gen
         else:

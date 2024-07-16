@@ -96,10 +96,12 @@ class PayloadEncoder:
         """Return the payload buffer."""
         return self._payload
 
-    @property
-    def crc(self) -> int:
-        """Calculate a Modbus-compatible CRC based on the buffer contents."""
-        return CrcModbus().process(self.payload).final()
+    def crc(self, start=0) -> int:
+        """Calculate a Modbus-compatible CRC based on the buffer contents.
+
+        If start is supplied, the crc is just from that offset to the end.
+        """
+        return CrcModbus().process(self._payload[start:]).final()
 
     def add_8bit_uint(self, value: int):
         """Adds an 8-bit unsigned int to the buffer."""
@@ -120,6 +122,10 @@ class PayloadEncoder:
         """Adds a 64-bit unsigned int to the buffer."""
         fstring = self._byteorder + 'Q'
         self._payload += struct.pack(fstring, value)
+
+    def add_16bit_le(self, value):
+        """Adds a 16-bit unsigned int to the buffer in little-endian order."""
+        self._payload += struct.pack("<H", value)
 
     def add_string(self, value: str, length: int):
         """Adds a string to the buffer."""

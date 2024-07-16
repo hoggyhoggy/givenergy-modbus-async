@@ -9,11 +9,8 @@ from ..exceptions import (
     CommunicationError,
     ExceptionBase,
 )
-from ..framer import (
-    ClientFramer,
-    Framer,
-)
 from ..model.plant import Plant
+from ..pdu.framer import ClientFramer, Framer
 from ..pdu import (
     HeartbeatRequest,
     TransparentRequest,
@@ -178,22 +175,22 @@ class Client:
     # In detail:
     #  the application task calls client.send_request_and_await_response()
     #  - this constructs a couple of 'future' objects, which are used for signalling
-    #  - it constructs an object to represent the expected response, and
-    #    adds it to the expected_responses dict with one of the futures
-    #  - it then adds the request to tx_queue, with the other future, and awaits that future
-    #  - when the producer has written the request to the socket, it marks the future as complete
-    #  - this reawakens the application task.
+    #  - adds the "shape_hash" of the request, with one of the futures, to the expected_responses dict
+    #  - adds the request, with the other future, to tx_queue
     #
-    #  the application now waits for the future attached to the expected response, with a timeout
-    #  - if the response arrives, the consumer worker receives it and signals the future
-    #  the application then retries on timeout, or is done.
+    #  The producer signals the first future when the request has actually been sent
+    #  The consumer signals the second future after a response matching the shape_hash
+    #
+    #  send_request_and_await_response waits for the futures to be signaled, handling
+    #  timeouts and retries as required.  (The timeout doesn't start until the request
+    #  has actually been sent.)
     #
     #  Entries don't seem to be removed from expected_responses dict.
     #  Instead, when an entry is reused for a new request, if the existing
     #  future was not signalled, it gets cancelled.
     #
-    #  client.exec() takes an array of requests, and creates one coroutine per request, to run
-    #  send_request_and_await_response in parallel. They happen in random order ?
+    #  client.execute() takes an array of requests, and creates one coroutine per request,
+    #  to run send_request_and_await_response in parallel. They happen in random order ?
 
     async def _task_network_consumer(self):
         """Task for orchestrating incoming data."""
@@ -229,10 +226,14 @@ class Client:
                     else:
                         _logger.info("%s", message)
 
+                # look to see if there's an outstanding request of this "shape",
+                # and if so, deliver it (just so it can be marked as done).
                 future = self.expected_responses.get(message.shape_hash())
 
                 if future and not future.done():
                     future.set_result(message)
+
+                # and send the message to the plant
                 self.plant.update(message)
         _logger.debug(
             "network_consumer reader at EOF, cannot continue, closing connection"
@@ -278,13 +279,15 @@ class Client:
         """Send a request to the remote, await and return the response."""
         raw_frame = request.encode()
 
-        # mark the expected response
-        expected_response = request.expected_response()
-        expected_shape_hash = expected_response.shape_hash()
+        # the expected response will have the same shape_hash as the outgoing request,
+        # so we can use this as the key in our expected_responses table.
+        expected_shape_hash = request.shape_hash()
 
         tries = 0
         while tries <= retries:
             tries += 1
+            # cancel any existing incomplete requests on this shape_hash,
+            # then store a new 'future' in the expected_responses table.
             existing_response_future = self.expected_responses.get(expected_shape_hash)
             if existing_response_future and not existing_response_future.done():
                 _logger.debug(
@@ -296,6 +299,8 @@ class Client:
             )
             self.expected_responses[expected_shape_hash] = response_future
 
+            # queue the frame for transmission, with a 'future' to signal when
+            # it has actually been sent, and wait for it to actually get sent.
             frame_sent = asyncio.get_event_loop().create_future()
             await self.tx_queue.put((raw_frame, frame_sent))
             await asyncio.wait_for(
@@ -304,6 +309,8 @@ class Client:
 
             _logger.debug("Request sent (attempt %d): %s", tries, request)
 
+            # Now wait for the consumer task to indicate that a response matching
+            # our request has arrived.
             try:
                 await asyncio.wait_for(response_future, timeout=timeout)
                 if response_future.done():
@@ -319,15 +326,15 @@ class Client:
 
             if tries <= retries:
                 _logger.debug(
-                    "Timeout awaiting %s, attempting retry %d of %d",
-                    expected_response,
+                    "Timeout awaiting response to %s, attempting retry %d of %d",
+                    request,
                     tries,
                     retries,
                 )
 
         _logger.warning(
-            "Timeout awaiting %s after %d tries at %ds, giving up",
-            expected_response,
+            "Timeout awaiting response to %s after %d tries at %ds, giving up",
+            request,
             tries,
             timeout,
         )

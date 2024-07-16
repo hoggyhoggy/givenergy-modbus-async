@@ -7,7 +7,7 @@ from .register_cache import (
     RegisterCache,
 )
 from ..pdu import (
-    ClientIncomingMessage,
+    BasePDU,
     NullResponse,
     ReadHoldingRegistersResponse,
     ReadInputRegistersResponse,
@@ -32,7 +32,7 @@ class Plant:
             register_caches = {0x32: RegisterCache()}
         self.register_caches = register_caches
 
-    def update(self, pdu: ClientIncomingMessage):
+    def update(self, pdu: BasePDU):
         """Update the Plant state from a PDU message."""
         if not isinstance(pdu, TransparentResponse):
             _logger.debug(f"Ignoring non-Transparent response {pdu}")

@@ -1,4 +1,4 @@
-import arrow
+from datetime import datetime
 import pytest
 
 from givenergy_modbus.client.client import Client
@@ -186,7 +186,7 @@ async def test_set_charge_and_discharge_limits():
     ]
 
     assert commands.set_battery_discharge_limit(50) == [
-        WriteHoldingRegisterRequest(RegisterMap.BATTERY_DISCHARGE_LIMIT, 50, slave_address=0x11),
+        WriteHoldingRegisterRequest(RegisterMap.BATTERY_DISCHARGE_LIMIT, 50),
     ]
 
     with pytest.raises(ValueError, match=r'51 out of range for battery_charge_limit'):
@@ -197,18 +197,18 @@ async def test_set_charge_and_discharge_limits():
 
 async def test_set_system_time():
     """Ensure set_system_time emits the correct requests."""
-    assert commands.set_system_date_time(arrow.get(year=2022, month=11, day=23, hour=4, minute=34, second=59)) == [
-        WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_YEAR, 22, slave_address=0x11),
-        WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_MONTH, 11, slave_address=0x11),
-        WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_DAY, 23, slave_address=0x11),
-        WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_HOUR, 4, slave_address=0x11),
-        WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_MINUTE, 34, slave_address=0x11),
-        WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_SECOND, 59, slave_address=0x11),
+    assert commands.set_system_date_time(datetime(year=2022, month=11, day=23, hour=4, minute=34, second=59)) == [
+        WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_YEAR, 22),
+        WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_MONTH, 11),
+        WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_DAY, 23),
+        WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_HOUR, 4),
+        WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_MINUTE, 34),
+        WriteHoldingRegisterRequest(RegisterMap.SYSTEM_TIME_SECOND, 59),
     ]
 
 
 async def test_set_inverter_reboot():
     """Ensure set_inverter_reboot emits the correct requests."""
     assert commands.set_inverter_reboot() == [
-        WriteHoldingRegisterRequest(RegisterMap.REBOOT, 100, slave_address=0x11),
+        WriteHoldingRegisterRequest(RegisterMap.REBOOT, 100),
     ]

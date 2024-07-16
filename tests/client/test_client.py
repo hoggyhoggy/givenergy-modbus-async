@@ -6,7 +6,7 @@ import pytest
 
 from givenergy_modbus.client.client import Client
 from givenergy_modbus.model import TimeSlot
-from givenergy_modbus.pdu.write_registers import WriteHoldingRegisterRequest, WriteHoldingRegisterResponse
+from givenergy_modbus.pdu import WriteHoldingRegisterRequest, WriteHoldingRegisterResponse
 
 
 async def test_expected_response():
@@ -26,7 +26,7 @@ async def test_expected_response():
     tx_fut.set_result(True)
 
     # simulate receiving a response, which enables the consumer task to mark response_future as done
-    client.reader.feed_data(WriteHoldingRegisterResponse(inverter_serial_number='', register=35, value=20).encode())
+    client.reader.feed_data(WriteHoldingRegisterResponse(inverter_serial_number='', base_register=35, register_values=[20]).encode())
     client.reader.feed_eof()
 
     # check the response
@@ -37,7 +37,7 @@ async def test_expected_response():
     expected_res_future = client.expected_responses[res.shape_hash()]
     assert expected_res_future._state == 'FINISHED'
     expected_res = await expected_res_future
-    assert expected_res.has_same_shape(res)
+    assert expected_res.shape_hash() == res.shape_hash()
     assert expected_res == res
 
 

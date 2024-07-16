@@ -186,13 +186,13 @@ _server_messages: PduTestCases = [
         '2:4/ReadInputRegistersRequest(slave_address=0x32 base_register=16 register_count=6)',
         ReadInputRegistersRequest,
         {
+            'slave_address': 0x32,
             'base_register': 0x10,
             'register_count': 6,
             'check': 0x740e,
             'data_adapter_serial_number': 'AB1234G567',
             'error': False,
             'padding': 8,
-            'slave_address': 0x32,
         },
         b'YY\x00\x01\x00\x1c\x01\x02',  # 8 bytes
         b'AB1234G567' b'\x00\x00\x00\x00\x00\x00\x00\x08' b'\x32\x04\x00\x10\x00\x06' b'\x74\x0e',  # 26 bytes
@@ -202,13 +202,13 @@ _server_messages: PduTestCases = [
         '2:3/ReadHoldingRegistersRequest(slave_address=0x32 base_register=20817 register_count=20)',
         ReadHoldingRegistersRequest,
         {
+            'slave_address': 0x32,
             'base_register': 0x5151,
             'register_count': 20,
             'check': 0x012b,
             'data_adapter_serial_number': 'AB1234G567',
             'error': False,
             'padding': 8,
-            'slave_address': 0x32,
         },
         b'YY\x00\x01\x00\x1c\x01\x02',
         b'AB1234G567' b'\x00\x00\x00\x00\x00\x00\x00\x08' b'\x32\x03\x51\x51\x00\x14' b'\x01\x2b',
@@ -218,13 +218,13 @@ _server_messages: PduTestCases = [
         '2:3/ReadHoldingRegistersRequest(slave_address=0x32 base_register=20817 register_count=30)',
         ReadHoldingRegistersRequest,
         {
+            'slave_address': 0x32,
             'base_register': 0x5151,
             'register_count': 30,
             'check': 0x812c,
             'data_adapter_serial_number': 'AB1234G567',
             'error': False,
             'padding': 8,
-            'slave_address': 0x32,
         },
         b'YY\x00\x01\x00\x1c\x01\x02',
         b'AB1234G567' b'\x00\x00\x00\x00\x00\x00\x00\x08' b'\x32\x03\x51\x51\x00\x1e' b'\x81\x2c',
@@ -234,13 +234,13 @@ _server_messages: PduTestCases = [
         '2:6/WriteHoldingRegisterRequest(179 -> 2000/0x07d0)',
         WriteHoldingRegisterRequest,
         {
-            'register': 179,
-            'value': 2000,
+            'slave_address': 0x32,
+            'base_register': 179,
+            'register_values': (2000,),
             'check': 0x7e42,
             'data_adapter_serial_number': 'AB1234G567',
             'error': False,
             'padding': 8,
-            'slave_address': 0x32,
         },
         b'YY\x00\x01\x00\x1c\x01\x02',
         b'AB1234G567' b'\x00\x00\x00\x00\x00\x00\x00\x08' b'\x32\x06\x00\xb3\x07\xd0' b'\x7e\x42',
@@ -250,13 +250,13 @@ _server_messages: PduTestCases = [
         '2:6/WriteHoldingRegisterRequest(199 -> 2000/0x07d0)',
         WriteHoldingRegisterRequest,
         {
-            'register': 199,
-            'value': 2000,
+            'slave_address': 0x32,
+            'base_register': 199,
+            'register_values': (2000,),
             'check': 0x3e58,
             'data_adapter_serial_number': 'AB1234G567',
             'error': False,
             'padding': 8,
-            'slave_address': 0x32,
         },
         b'YY\x00\x01\x00\x1c\x01\x02',
         b'AB1234G567' b'\x00\x00\x00\x00\x00\x00\x00\x08' b'\x32\x06\x00\xc7\x07\xd0' b'\x3e\x58',
@@ -266,13 +266,13 @@ _server_messages: PduTestCases = [
         '2:6/WriteHoldingRegisterRequest(20 -> 1/0x0001)',
         WriteHoldingRegisterRequest,
         {
-            'register': 0x14,
-            'value': 1,
+            'slave_address': 0x32,
+            'base_register': 0x14,
+            'register_values': (1,),
             'check': 0x0dcd,
             'data_adapter_serial_number': 'AB1234G567',
             'error': False,
             'padding': 8,
-            'slave_address': 0x32,
         },
         b'YY\x00\x01\x00\x1c\x01\x02',
         b'AB1234G567' b'\x00\x00\x00\x00\x00\x00\x00\x08' b'\x32\x06\x00\x14\x00\x01' b'\x0d\xcd',
@@ -297,23 +297,23 @@ _client_messages: PduTestCases = [
         '2:4/ReadInputRegistersResponse(slave_address=0x32 base_register=0)',
         ReadInputRegistersResponse,
         {
-            'check': 0x8E4B,
+            'slave_address': 0x32,
+            'check': 0x172d,
             'inverter_serial_number': 'SA1234G567',
             'base_register': 0x0000,
             'register_count': 0x003C,
             # fmt: off
-            'register_values': [
+            'register_values': (
                 0x0001, 0x0CB0, 0x0C78, 0x0F19, 0x0000, 0x095B, 0x0000, 0x05C5, 0x0001, 0x0002,
                 0x0021, 0x0000, 0x008C, 0x138A, 0x0005, 0x0AA9, 0x2B34, 0x0008, 0x0041, 0x0008,
                 0x003F, 0x0000, 0x0005, 0x0000, 0x0278, 0x0000, 0x0071, 0x0000, 0x02FF, 0x0000,
                 0xFF75, 0x0000, 0x0000, 0x0BF5, 0x0000, 0x0057, 0x0054, 0x0049, 0x0000, 0x0000,
                 0x0000, 0x0124, 0x0311, 0x0288, 0x004E, 0x0000, 0x02F7, 0x0000, 0x00B6, 0x0001,
                 0x139E, 0x0467, 0x023C, 0x094B, 0x1389, 0x0121, 0x00BE, 0x0000, 0x00F8, 0x0011,
-            ],
+            ),
             # fmt: on
             'data_adapter_serial_number': 'WF1234G567',
             'padding': 0x8A,
-            'slave_address': 0x32,
             'error': False,
         },
         b'YY\x00\x01\x00\x9e\x01\x02',  # 8b MBAP header
@@ -324,30 +324,30 @@ _client_messages: PduTestCases = [
         b'\n\xa9+4\x00\x08\x00A\x00\x08\x00?\x00\x00\x00\x05\x00\x00\x02x\x00\x00\x00q\x00\x00\x02\xff\x00\x00'
         b'\xffu\x00\x00\x00\x00\x0b\xf5\x00\x00\x00W\x00T\x00I\x00\x00\x00\x00\x00\x00\x01$\x03\x11\x02\x88\x00N'
         b'\x00\x00\x02\xf7\x00\x00\x00\xb6\x00\x01\x13\x9e\x04g\x02<\tK\x13\x89\x01!\x00\xbe\x00\x00\x00\xf8\x00\x11'
-        b'\x8e\x4b',  # 2b crc
+        b'\x17\x2d',  # 2b crc
         None,
     ),
     (
         '2:3/ReadHoldingRegistersResponse(slave_address=0x32 base_register=0)',
         ReadHoldingRegistersResponse,
         {
-            'check': 0x153D,
+            'slave_address': 0x32,
+            'check': 0x38e0,
             'inverter_serial_number': 'SA1234G567',
             'base_register': 0x0000,
             'register_count': 0x003C,
             # fmt: off
-            'register_values': [
+            'register_values': (
                 0x2001, 0x0003, 0x0832, 0x0201, 0x0000, 0xC350, 0x0E10, 0x0001, 0x4247, 0x3132,
                 0x3334, 0x4735, 0x3637, 0x5341, 0x3132, 0x3334, 0x4735, 0x3637, 0x0BBD, 0x01C1,
                 0x0000, 0x01C1, 0x0002, 0x0000, 0x8000, 0x761B, 0x1770, 0x0001, 0x0000, 0x0000,
                 0x0011, 0x0000, 0x0004, 0x0007, 0x008C, 0x0016, 0x0004, 0x0011, 0x0013, 0x0001,
                 0x0001, 0x0001, 0x0002, 0x0000, 0x0000, 0x0000, 0x0065, 0x0001, 0x0000, 0x0000,
                 0x0064, 0x0000, 0x0000, 0x0001, 0x0001, 0x00A0, 0x0640, 0x02BC, 0x0001, 0x0000,
-            ],
+            ),
             # fmt: on
             'data_adapter_serial_number': 'WF1234G567',
             'padding': 0x8A,
-            'slave_address': 0x32,
             'error': False,
         },
         b'YY\x00\x01\x00\x9e\x01\x02',  # 8b MBAP header
@@ -358,25 +358,20 @@ _client_messages: PduTestCases = [
         b'\xc1\x00\x02\x00\x00\x80\x00v\x1b\x17p\x00\x01\x00\x00\x00\x00\x00\x11\x00\x00\x00\x04\x00\x07\x00\x8c'
         b'\x00\x16\x00\x04\x00\x11\x00\x13\x00\x01\x00\x01\x00\x01\x00\x02\x00\x00\x00\x00\x00\x00\x00e\x00\x01\x00'
         b'\x00\x00\x00\x00d\x00\x00\x00\x00\x00\x01\x00\x01\x00\xa0\x06@\x02\xbc\x00\x01\x00\x00'
-        b'\x15=',  # 2b crc
-        # b'\x00\x01\x0c\xb0\x0cx\x0f\x19\x00\x00\t[\x00\x00\x05\xc5\x00\x01\x00\x02\x00!\x00\x00\x00\x8c\x13\x8a\x00\x05'
-        # b'\n\xa9+4\x00\x08\x00A\x00\x08\x00?\x00\x00\x00\x05\x00\x00\x02x\x00\x00\x00q\x00\x00\x02\xff\x00\x00'
-        # b'\xffu\x00\x00\x00\x00\x0b\xf5\x00\x00\x00W\x00T\x00I\x00\x00\x00\x00\x00\x00\x01$\x03\x11\x02\x88\x00N'
-        # b'\x00\x00\x02\xf7\x00\x00\x00\xb6\x00\x01\x13\x9e\x04g\x02<\tK\x13\x89\x01!\x00\xbe\x00\x00\x00\xf8\x00\x11'
-        # b"\x8e\x4b",  # 2b crc
+        b'\x38\xe0',  # 2b crc
         None,
     ),
     (
         '2:6/WriteHoldingRegisterResponse(35 -> 8764/0x223c)',
         WriteHoldingRegisterResponse,
         {
-            'check': 0x8E4B,
+            'slave_address': 0x32,
+            'check': 0xe463,
             'inverter_serial_number': 'SA1234G567',
-            'register': 0x0023,
-            'value': 0x223C,
+            'base_register': 0x0023,
+            'register_values': (0x223C,),
             'data_adapter_serial_number': 'WF1234G567',
             'padding': 0x8A,
-            'slave_address': 0x32,
             'error': False,
         },
         b'YY\x00\x01\x00\x26\x01\x02',  # 8b MBAP header
@@ -386,7 +381,7 @@ _client_messages: PduTestCases = [
         b'SA1234G567'
         b'\x00\x23'  # register
         b'\x22\x3c'  # value readback
-        b'\x8e\x4b',  # 2b crc
+        b'\xe4\x63',  # 2b crc
         None,
     ),
     (
@@ -398,19 +393,23 @@ _client_messages: PduTestCases = [
         None,
     ),
     (
-        '2:0/NullResponse(slave_address=0x22 nulls=[0]*62)',
+        # TODO: not sure if NullResponse has a non-zero crc, but our pdu
+        # module does generate one, and so to allow tests that re-encode
+        # the received message, just assume we compute the correct crc
+
+        '2:0/NullResponse(slave_address=0x22)',
         NullResponse,
         {
-            'check': 0x0,
+            'check': 0x7cbf,
             'inverter_serial_number': '\x00' * 10,
             'data_adapter_serial_number': 'KK4321H987',
             'padding': 0x8A,
             'slave_address': 0x22,
             'error': False,
-            'nulls': [0] * 62,
+            'register_values': (0,) * 62,
         },
         _mbap_header(2, 158),
-        _h2b('4b4b3433323148393837000000000000008a2200' + '0000' * 68),
+        _h2b('4b4b3433323148393837000000000000008a2200' + '0000' * 67 + '7cbf'),
         None,
     ),
 ]
