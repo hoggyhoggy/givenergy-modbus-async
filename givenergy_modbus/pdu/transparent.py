@@ -291,9 +291,13 @@ class TransparentMessage(BasePDU):
 class TransparentRequest(TransparentMessage):
     """Parent/decoder of request classes."""
 
+    padding: int = 0x08
+
 
 class TransparentResponse(TransparentMessage):
     """Parent/decoder of response classes."""
+
+    padding: int = 0x8A
 
 
 # Now all the other classes are just trivial wrappers,
@@ -303,6 +307,7 @@ class TransparentResponse(TransparentMessage):
 class ReadInputRegistersRequest(TransparentRequest):
     transparent_function_code = READINPUT
     fields = Field.BASE | Field.COUNT
+    register_class = IR
 
 
 class ReadInputRegistersResponse(TransparentResponse):
@@ -314,6 +319,7 @@ class ReadInputRegistersResponse(TransparentResponse):
 class ReadBatteryInputRegistersRequest(TransparentRequest):
     transparent_function_code = READBATTERY
     fields = Field.BASE | Field.COUNT
+    register_class = IR
 
 
 class ReadBatteryInputRegistersResponse(TransparentResponse):
@@ -325,6 +331,7 @@ class ReadBatteryInputRegistersResponse(TransparentResponse):
 class ReadHoldingRegistersRequest(TransparentRequest):
     transparent_function_code = READHOLDING
     fields = Field.BASE | Field.COUNT
+    register_class = HR
 
 
 class ReadHoldingRegistersResponse(TransparentResponse):
@@ -342,6 +349,7 @@ class WriteHoldingRegisterRequest(TransparentRequest):
     transparent_function_code = WRITEHOLDING
     fields = Field.BASE | Field.VALUES
     register_count = 1
+    register_class = HR
 
     # Translate the aliases to the internal names
     # Needs to work correctly using either register + value as positional
