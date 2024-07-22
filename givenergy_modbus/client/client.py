@@ -1,10 +1,10 @@
 import asyncio
-from io import BufferedIOBase
 import logging
 import socket
 from asyncio import Future, Queue, StreamReader, StreamWriter, Task
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
+from . import commands
 from ..exceptions import (
     CommunicationError,
     ExceptionBase,
@@ -30,31 +30,27 @@ class Client:
     framer: Framer
     expected_responses: "Dict[int, Future[TransparentResponse]]" = {}
     plant: Plant
+    # refresh_count: int = 0
+    # debug_frames: Dict[str, Queue]
     connected = False
     reader: StreamReader
     writer: StreamWriter
     network_consumer_task: Task
     network_producer_task: Task
-    recorder: Optional[BufferedIOBase]
 
     tx_queue: "Queue[Tuple[bytes, Optional[Future]]]"
 
-    def __init__(
-        self,
-        host: str,
-        port: int,
-        connect_timeout: float = 2.0,
-        recorder: Optional[BufferedIOBase] = None,
-    ) -> None:
+    def __init__(self, host: str, port: int, connect_timeout: float = 2.0) -> None:
         self.host = host
         self.port = port
         self.connect_timeout = connect_timeout
         self.framer = ClientFramer()
         self.plant = Plant()
         self.tx_queue = Queue(maxsize=20)
-
-        # optionally record all received data to a file
-        self.recorder = recorder
+        # self.debug_frames = {
+        #     'all': Queue(maxsize=1000),
+        #     'error': Queue(maxsize=1000),
+        # }
 
     async def connect(self) -> None:
         """Connect to the remote host and start background tasks."""
@@ -75,6 +71,7 @@ class Client:
         self.network_producer_task = asyncio.create_task(
             self._task_network_producer(), name="network_producer"
         )
+        # asyncio.create_task(self._task_dump_queues_to_files(), name='dump_queues_to_files'),
         self.connected = True
         _logger.info("Connection established to %s:%d", self.host, self.port)
 
@@ -110,33 +107,31 @@ class Client:
             del self.reader
 
         self.expected_responses = {}
+        # self.debug_frames = {
+        #     'all': Queue(maxsize=1000),
+        #     'error': Queue(maxsize=1000),
+        # }
 
     async def refresh_plant(
         self,
         full_refresh: bool = True,
-        max_batteries: int = 5,
-        timeout: float = 1.0,
-        retries: int = 0,
+        number_batteries: int = 0,
+        meter_list: list[int] = [],
+        bcu_list: list[tuple]=[],
+        timeout: float = 3,
+        retries: int = 5,
+        return_exceptions: bool = False,
     ) -> Plant:
         """Refresh data about the Plant."""
-        reqs = self.commands.refresh_plant_data(
-            full_refresh, self.plant.number_batteries, max_batteries
+
+        reqs = commands.refresh_plant_data(
+            full_refresh, number_batteries, isHV=self.plant.isHV, 
+            additional_holding_registers=self.plant.additional_holding_registers,
+            additional_input_registers=self.plant.additional_input_registers, 
+            slave_addr=self.plant.slave_address,meter_list=meter_list,bcu_list=bcu_list
         )
-        await self.execute(reqs, timeout=timeout, retries=retries)
-
-        if full_refresh:
-            self.plant.detect_batteries()
-
+        await self.execute(reqs, timeout=timeout, retries=retries, return_exceptions=return_exceptions)
         return self.plant
-
-    @property
-    def commands(self):
-        """Access to the library of commands."""
-
-        # defer import until here to avoid circularity
-        from .commands import Commands
-
-        return Commands(self)
 
     async def watch_plant(
         self,
@@ -153,22 +148,156 @@ class Client:
         self.plant.detect_batteries()
         while True:
             if handler:
-                handler()
+                handler(self.plant)
             await asyncio.sleep(refresh_period)
             if not passive:
-                reqs = self.commands.refresh_plant_data(
-                    False, self.plant.number_batteries
-                )
+                reqs = commands.refresh_plant_data(False, self.plant.number_batteries)
                 await self.execute(
                     reqs, timeout=timeout, retries=retries, return_exceptions=True
                 )
 
+    async def get_bcus(self) -> None:
+        """Determine the number of BCUs available in a device by getting BAMS data.
+        """
+        from ..model.register import IR
+        from ..pdu import ReadInputRegistersRequest
+        
+        # Get BAM data at 0xA0
+        req=[]
+        req.append(
+            ReadInputRegistersRequest(
+                base_register=60, register_count=5, slave_address=0xA0
+            ))
+        await self.execute(req,timeout=2, retries=3, return_exceptions=True)
+        self.plant.number_bcus = self.plant.register_caches[0xA0][IR(61)]
+        req=[]
+        for bcu_num in range(self.plant.number_bcus):
+            req.append(
+            ReadInputRegistersRequest(
+                base_register=60, register_count=60, slave_address=0x70+bcu_num
+            ))
+        await self.execute(req,timeout=2, retries=3, return_exceptions=True)
+        for bcu_num in range(self.plant.number_bcus):
+            val=self.plant.register_caches[0x70+bcu_num][IR(64)]
+            self.plant.bcu_list.append([bcu_num,val])
+
+    async def detect_plant(
+        self,
+        timeout: int = 3,
+        retries: int = 10,
+        additional: bool=True) -> None:
+        """Detect inverter capabilities that influence how subsequent 
+        requests are made."""
+
+        _logger.info("Detecting plant")
+        from ..model.register import Model
+        # Refresh the core set of registers that work across all inverters
+        #await self.refresh_plant(True, timeout=timeout, retries=retries)
+        
+        #Force 0x11 slave address only during detect
+        self.plant.slave_address=0x11
+        self.plant.isHV = False
+        
+        await self.refresh_plant(True, number_batteries=0, retries=retries, timeout=timeout)
+
+        _logger.info("Plant Detected")
+
+############ Check what other devices need 0x11 ###############
+        #find model depending on device type
+        if not self.plant.inverter == None:
+            self.plant.device_type=self.plant.inverter.model
+            
+        elif not self.plant.gateway == None:
+            self.plant.device_type=self.plant.gateway.model
+        elif not self.plant.ems == None:
+            self.plant.device_type=self.plant.ems.model
+
+        if self.plant.device_type in (Model.ALL_IN_ONE, Model.AC_3PH, Model.HYBRID_3PH):
+            self.plant.isHV = True
+            meter_list=[1,2,3,4,5,6,7,8]
+        else:
+            self.plant.isHV= False
+            meter_list=[]
+
+        #### Set whether a device has batteries and then count them if they are allowed ####
+        if self.plant.device_type in (Model.EMS,Model.GATEWAY):
+            self.plant.number_batteries=0
+        else:
+            if self.plant.device_type in (Model.AC, Model.HYBRID):
+                self.plant.slave_address = 0x31
+            #### Determine how many BCUs and then define the battery locations to look for, then set plant.number_bcus ####
+            if self.plant.isHV:
+                await self.get_bcus()
+            
+            #### Get max num of batteries for each BCU then test if they are valid ####
+            await self.refresh_plant(True, number_batteries=6, meter_list=meter_list, bcu_list=self.plant.bcu_list, retries=retries, timeout=timeout, return_exceptions=True) #set return exceptions to true to allow meters to not be found
+            self.plant.detect_batteries()
+            self.plant.detect_meters()
+        
+            # Use that to detect the number of batteries
+        _logger.info("Batteries detected: %d", self.plant.bcu_list)
+        _logger.info("Meters detected: %d", self.plant.meter_list)
+        _logger.info("Slave address in use: "+ str(self.plant.slave_address))
+
+        #Get Meter Product Info
+
+
+        # Some devices support additional registers
+        # When unsupported, devices appear to simple ignore requests
+        
+############ What register sets should we look for????
+        if additional:
+
+            # Set additional registers based on model
+            additional_registers=Model.add_regs(self.plant.device_type.value)
+            possible_additional_input_registers=additional_registers[0]
+            possible_additional_holding_registers=additional_registers[1]
+
+            #possible_additional_input_registers = [2040]
+            for ir in possible_additional_input_registers:
+                try:
+                    reqs = commands.refresh_additional_input_registers(ir,self.plant.slave_address)
+                    await self.execute(reqs, timeout=timeout, retries=3)
+                    _logger.info(
+                        "Detected additional input register support (base_register=%d)",
+                        ir,
+                    )
+                    self.plant.additional_input_registers.append(ir)
+                except asyncio.TimeoutError:
+                    _logger.debug(
+                        "Inverter did not respond to input register query (base_register=%d)",
+                        ir,
+                    )
+            _logger.info("Additional Input Registers: "+str(self.plant.additional_input_registers))
+
+
+            #possible_additional_holding_registers = [180, 240, 300, 360, 2040]
+            for hr in possible_additional_holding_registers:
+                try:
+                    if hr == 2040:      #For EMS there are only 36 regs in the 2040 block
+                        reqs = commands.refresh_additional_holding_registers(hr,self.plant.slave_address,36)
+                    else:
+                        reqs = commands.refresh_additional_holding_registers(hr,self.plant.slave_address)
+                    await self.execute(reqs, timeout=timeout, retries=3)
+                    _logger.info(
+                        "Detected additional holding register support (base_register=%d)",
+                        hr,
+                    )
+                    self.plant.additional_holding_registers.append(hr)
+                except asyncio.TimeoutError:
+                    _logger.debug(
+                        "Inverter did not respond to holding register query (base_register=%d)",
+                        hr,
+                    )
+            _logger.info("Additional Holding Registers: "+str(self.plant.additional_holding_registers))
+
     async def one_shot_command(
-        self, requests: Sequence[TransparentRequest], timeout=1.5, retries=0
+        self, requests: list[TransparentRequest], timeout=1.5, retries=0
     ) -> None:
         """Run a single set of requests and return."""
         await self.connect()
         await self.execute(requests, timeout=timeout, retries=retries)
+
 
     # The i/o activity is co-ordinated by two background tasks:
     # - the consumer reads from the socket, responds to heartbeat requests,
@@ -192,15 +321,15 @@ class Client:
     #  Instead, when an entry is reused for a new request, if the existing
     #  future was not signalled, it gets cancelled.
     #
-    #  client.exec() takes an array of requests, and creates one coroutine per request, to run
+    #  client.execute() takes an array of requests, and creates one coroutine per request, to run
     #  send_request_and_await_response in parallel. They happen in random order ?
+
 
     async def _task_network_consumer(self):
         """Task for orchestrating incoming data."""
         while hasattr(self, "reader") and self.reader and not self.reader.at_eof():
             frame = await self.reader.read(300)
-            if self.recorder:
-                self.recorder.write(frame)
+            # await self.debug_frames['all'].put(frame)
             for message in self.framer.decode(frame):
                 _logger.debug("Processing %s", message)
                 if isinstance(message, ExceptionBase):
@@ -214,9 +343,6 @@ class Client:
                     await self.tx_queue.put(
                         (message.expected_response().encode(), None)
                     )
-                    if self.recorder:
-                        # an opportunity to flush to file, since these arrive regularly
-                        self.recorder.flush()
                     continue
                 if not isinstance(message, TransparentResponse):
                     _logger.warning(
@@ -233,7 +359,11 @@ class Client:
 
                 if future and not future.done():
                     future.set_result(message)
+                # try:
                 self.plant.update(message)
+                # except RegisterCacheUpdateFailed as e:
+                #     # await self.debug_frames['error'].put(frame)
+                #     _logger.debug(f'Ignoring {message}: {e}')
         _logger.debug(
             "network_consumer reader at EOF, cannot continue, closing connection"
         )
@@ -254,13 +384,27 @@ class Client:
         )
         await self.close()
 
+    # async def _task_dump_queues_to_files(self):
+    #     """Task to periodically dump debug message frames to disk for debugging."""
+    #     while True:
+    #         await asyncio.sleep(30)
+    #         if self.debug_frames:
+    #             os.makedirs('debug', exist_ok=True)
+    #             for name, queue in self.debug_frames.items():
+    #                 if not queue.empty():
+    #                     async with aiofiles.open(f'{os.path.join("debug", name)}_frames.txt', mode='a') as str_file:
+    #                         await str_file.write(f'# {arrow.utcnow().timestamp()}\n')
+    #                         while not queue.empty():
+    #                             item = await queue.get()
+    #                             await str_file.write(item.hex() + '\n')
+
     def execute(
         self,
-        requests: Sequence[TransparentRequest],
+        requests: list[TransparentRequest],
         timeout: float,
         retries: int,
         return_exceptions: bool = False,
-    ) -> "Future[List[TransparentResponse | BaseException]]":
+    ) -> "Future[List[TransparentResponse]]":
         """Helper to perform multiple requests in parallel."""
         return asyncio.gather(
             *[
@@ -291,9 +435,9 @@ class Client:
                     "Cancelling existing in-flight request and replacing: %s", request
                 )
                 existing_response_future.cancel()
-            response_future: Future[TransparentResponse] = (
-                asyncio.get_event_loop().create_future()
-            )
+            response_future: Future[
+                TransparentResponse
+            ] = asyncio.get_event_loop().create_future()
             self.expected_responses[expected_shape_hash] = response_future
 
             frame_sent = asyncio.get_event_loop().create_future()
@@ -315,6 +459,7 @@ class Client:
                     else:
                         return response
             except asyncio.TimeoutError:
+                await asyncio.sleep(0.5)
                 pass
 
             if tries <= retries:
@@ -325,7 +470,7 @@ class Client:
                     retries,
                 )
 
-        _logger.warning(
+        _logger.debug(
             "Timeout awaiting %s after %d tries at %ds, giving up",
             expected_response,
             tries,

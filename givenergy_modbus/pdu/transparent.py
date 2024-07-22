@@ -24,7 +24,7 @@ class TransparentMessage(BasePDU, ABC):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.slave_address = kwargs.get("slave_address", 0x32)
+        self.slave_address = kwargs.get("slave_address", 0x31)
         self.error = kwargs.get("error", False)
         self.padding = kwargs.get("padding", 0x08)  # this does seem significant
         self.check = kwargs.get("check", 0x0000)
@@ -134,7 +134,7 @@ class TransparentRequest(TransparentMessage, ClientOutgoingMessage, ABC):
         cls, transparent_function_code: int
     ) -> type["TransparentRequest"]:
         from .import (
-            ReadBatteryInputRegistersRequest,
+            ReadMeterProductRegistersRequest,
             ReadHoldingRegistersRequest,
             ReadInputRegistersRequest,
             WriteHoldingRegisterRequest,
@@ -146,8 +146,8 @@ class TransparentRequest(TransparentMessage, ClientOutgoingMessage, ABC):
             return ReadInputRegistersRequest
         elif transparent_function_code == 6:
             return WriteHoldingRegisterRequest
-        elif transparent_function_code == 0x16:
-            return ReadBatteryInputRegistersRequest
+        elif transparent_function_code == 22:
+            return ReadMeterProductRegistersRequest
         else:
             raise NotImplementedError(
                 f"TransparentRequest function #{transparent_function_code} decoder"
@@ -177,7 +177,7 @@ class TransparentResponse(TransparentMessage, ClientIncomingMessage, ABC):
     ) -> type["TransparentResponse"]:
         from .import (
             NullResponse,
-            ReadBatteryInputRegistersResponse,
+            ReadMeterProductRegistersResponse,
             ReadHoldingRegistersResponse,
             ReadInputRegistersResponse,
             WriteHoldingRegisterResponse,
@@ -191,8 +191,8 @@ class TransparentResponse(TransparentMessage, ClientIncomingMessage, ABC):
             return ReadInputRegistersResponse
         elif transparent_function_code == 6:
             return WriteHoldingRegisterResponse
-        elif transparent_function_code == 0x16:
-            return ReadBatteryInputRegistersResponse
+        elif transparent_function_code == 22:       #This is meter product responses
+            return ReadMeterProductRegistersResponse
         else:
             raise NotImplementedError(
                 f"TransparentResponse function #{transparent_function_code} decoder"

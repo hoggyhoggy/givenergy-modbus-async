@@ -15,9 +15,9 @@ from .heartbeat import (
 )
 from .null import NullResponse
 from .read_registers import (
-    ReadBatteryInputRegisters,
-    ReadBatteryInputRegistersRequest,
-    ReadBatteryInputRegistersResponse,
+    ReadMeterProductRegisters,
+    ReadMeterProductRegistersRequest,
+    ReadMeterProductRegistersResponse,
     ReadHoldingRegisters,
     ReadHoldingRegistersRequest,
     ReadHoldingRegistersResponse,
@@ -53,9 +53,9 @@ __all__ = [
     "ReadInputRegisters",
     "ReadInputRegistersRequest",
     "ReadInputRegistersResponse",
-    "ReadBatteryInputRegisters",
-    "ReadBatteryInputRegistersRequest",
-    "ReadBatteryInputRegistersResponse",
+    "ReadMeterProductRegisters",
+    "ReadMeterProductRegistersRequest",
+    "ReadMeterProductRegistersResponse",
     "ReadRegistersMessage",
     "ReadRegistersRequest",
     "ReadRegistersResponse",
