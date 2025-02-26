@@ -1,6 +1,5 @@
-from abc import ABC
 import logging
-from typing import ClassVar, Iterator
+from abc import ABC
 
 from ..codec import (
     PayloadDecoder,
@@ -14,7 +13,6 @@ from .transparent import (
     TransparentRequest,
     TransparentResponse,
 )
-from ..model.register import Register, IR, HR
 
 _logger = logging.getLogger(__name__)
 
@@ -95,25 +93,11 @@ class ReadRegistersRequest(ReadRegistersMessage, TransparentRequest, ABC):
 class ReadRegistersResponse(ReadRegistersMessage, TransparentResponse, ABC):
     """Handles all messages that respond with a range of registers."""
 
-    # Read(Battery)InputRegistersResponse sets this to IR,
-    # ReadHoldingRegistersResponse sets it to HR.
-    register_class: ClassVar[type[Register]]
-
-    # A helper for use by plant. Outputs pairs in exactly the format
-    # required by dict.update()
-    def enumerate(self) -> Iterator[tuple[Register, int]]:
-        """Generate pairs of (register, value) from the message."""
-        idx = self.base_register
-        cls = self.register_class
-        for val in self.register_values:
-            yield cls(idx), val
-            idx += 1
-
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.register_values: list[int] = kwargs.get("register_values", [])
 
-    def _encode_function_data(self) -> None:
+    def _encode_function_data(self):
         super()._encode_function_data()
         self._builder.add_16bit_uint(self.base_register)
         self._builder.add_16bit_uint(self.register_count)
@@ -148,6 +132,12 @@ class ReadRegistersResponse(ReadRegistersMessage, TransparentResponse, ABC):
         # crc = CrcModbus().process(crc_builder.to_string()).final()
         # _logger.warning(f'supplied crc = {self.check}, calculated crc = {crc}')
 
+    def to_dict(self) -> dict[int, int]:
+        """Return the registers as a dict of register_index:value. Accounts for base_register offsets."""
+        return {
+            k: v for k, v in enumerate(self.register_values, start=self.base_register)
+        }
+
     def is_suspicious(self) -> bool:
         """Try to identify known-bad data in register lookup calls and prevent them from entering the dispatching."""
         if (
@@ -175,10 +165,9 @@ class ReadRegistersResponse(ReadRegistersMessage, TransparentResponse, ABC):
                 self.register_values[59] == 0x661E,
             ).count(True)
             if count_known_bad_register_values > 5:
-                _logger.warn(
-                    "Ignoring known suspicious update with %d known bad register values %s",
-                    count_known_bad_register_values,
-                    self,
+                _logger.debug(
+                    f"Ignoring known suspicious update with {count_known_bad_register_values} known bad "
+                    f"register values {self}: {self.to_dict()}"
                 )
                 return True
         return False
@@ -204,8 +193,6 @@ class ReadHoldingRegistersRequest(ReadHoldingRegisters, ReadRegistersRequest):
 class ReadHoldingRegistersResponse(ReadHoldingRegisters, ReadRegistersResponse):
     """Concrete PDU implementation for handling function #3/Read Holding Registers response messages."""
 
-    register_class = HR
-
     def expected_response(self):
         return
 
@@ -230,35 +217,31 @@ class ReadInputRegistersRequest(ReadInputRegisters, ReadRegistersRequest):
 class ReadInputRegistersResponse(ReadInputRegisters, ReadRegistersResponse):
     """Concrete PDU implementation for handling function #4/Read Input Registers response messages."""
 
-    register_class = IR
-
     def expected_response(self):
         return
 
 
-class ReadBatteryInputRegisters(ReadRegistersMessage, ABC):
-    """Request & Response PDUs for function #22/Read Battery Input Registers."""
+class ReadMeterProductRegisters(ReadRegistersMessage, ABC):
+    """Request & Response PDUs for function #4/Read Input Registers."""
 
-    transparent_function_code = 0x16
+    transparent_function_code = 22
 
 
-class ReadBatteryInputRegistersRequest(ReadBatteryInputRegisters, ReadRegistersRequest):
-    """Concrete PDU implementation for handling function #22/Read Battery Input Registers request messages."""
+class ReadMeterProductRegistersRequest(ReadMeterProductRegisters, ReadRegistersRequest):
+    """Concrete PDU implementation for handling function #22/Read Meter Registers request messages."""
 
     def expected_response(self):
-        return ReadBatteryInputRegistersResponse(
+        return ReadInputRegistersResponse(
             base_register=self.base_register,
             register_count=self.register_count,
             slave_address=self.slave_address,
         )
 
 
-class ReadBatteryInputRegistersResponse(
-    ReadBatteryInputRegisters, ReadRegistersResponse
+class ReadMeterProductRegistersResponse(
+    ReadMeterProductRegisters, ReadRegistersResponse
 ):
-    """Concrete PDU implementation for handling function #22/Read Battery Input Registers response messages."""
-
-    register_class = IR
+    """Concrete PDU implementation for handling function #22/Read Meter Registers response messages."""
 
     def expected_response(self):
         return
